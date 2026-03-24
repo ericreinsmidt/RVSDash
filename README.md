@@ -114,3 +114,6 @@ This repo provides
 * Add commands for inserting/deleting maps
 * Add command to create/save map lists
 * Implement player and server stats
+
+## License and Notice
+* All code is licensed under MIT except `N4Admin.u`, which is © 2004 Neil Popplewell and is not covered by this license.
