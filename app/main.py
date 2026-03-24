@@ -34,6 +34,8 @@ Operational context:
 
 import base64  # Used to return datagrams in a debuggable Base64 form to clients.
 from pathlib import Path  # Used for reliable filesystem paths relative to this file.
+import logging
+import traceback
 
 from fastapi import FastAPI  # The web framework used to build API + HTML endpoints.
 from fastapi.responses import HTMLResponse, JSONResponse  # Response helpers.
@@ -199,13 +201,14 @@ def api_query():
                 "datagrams_b64": [base64.b64encode(d).decode("ascii") for d in datagrams],
             }
         )
-    except Exception as e:
+    except Exception:
         # Convert any error into a JSON response rather than crashing the server.
-        # Note: you may want to log exceptions server-side in a real deployment.
+        # Log full exception details server-side for debugging.
+        logging.exception("Error while querying default game server")
         return JSONResponse(
             {
                 "ok": False,
-                "error": str(e),
+                "error": "Internal server error while querying server.",
                 "target": {"ip": DEFAULT_SERVER_IP, "port": DEFAULT_SERVER_PORT},
             }
         )
@@ -236,11 +239,12 @@ def api_admin_available_maps():
                 "datagrams_b64": [base64.b64encode(d).decode("ascii") for d in datagrams],
             }
         )
-    except Exception as e:
+    except Exception:
+        logging.exception("Error while retrieving available maps from default game server")
         return JSONResponse(
             {
                 "ok": False,
-                "error": str(e),
+                "error": "Internal server error while retrieving available maps.",
                 "target": {"ip": DEFAULT_SERVER_IP, "port": DEFAULT_SERVER_PORT},
             },
             status_code=400,
