@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <!--
+  ==============================================================================
+  File: app/web/status.html
+  Project: RVSDash - Raven Shield Dashboard (Status and Admin)
+  Author: Eric Reinsmidt
+
+  What this file does:
+  - Defines the Status Dashboard HTML page that the backend should serve at GET /status.
+  - Provides UI containers that status.js fills with live data from GET /api/query:
+    - Server summary card
+    - Players table
+    - Map list
+    - Raw KV JSON (collapsible)
+
+  How it works:
+  - This file provides structure only; the dynamic behavior is in /web/js/status.js.
+  - __DEFAULT_TARGET__ is replaced server-side by FastAPI so the UI shows the
+    configured default game server target.
+  - Styling is provided by /web/css/status.css.
+
+  UI/UX notes:
+  - Auto-refresh is expected (implemented in status.js).
+  - Players "Loadout" is shown via overlay panel behavior (implemented via CSS/JS).
+  ==============================================================================
+  -->
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Raven Shield Status</title>
+
+  <!-- Status page stylesheet (cache-busted) -->
+  <link rel="stylesheet" href="/web/css/status.css">
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <h1>Raven Shield Status</h1>
+
+        <!-- Navigation links -->
+        <div class="nav">
+          <span>Pages:</span>
+          <a href="/">/</a>
+          <a href="/status">/status</a>
+          <a href="/admin">/admin</a>
+        </div>
+      </div>
+
+      <!-- Backend injects __DEFAULT_TARGET__ here. -->
+      <div class="pill">Target: <b>__DEFAULT_TARGET__</b> • Auto-refresh: 5s</div>
+    </div>
+
+    <!-- Grid layout for cards -->
+    <div class="grid">
+
+      <!-- SERVER CARD: status.js populates #serverRows and updates dot/lastUpdate -->
+      <div class="card server">
+        <h2>Server</h2>
+        <div class="rows" id="serverRows"></div>
+
+        <div class="statusbar">
+          <div class="dot" id="dot"></div>
+          <div class="small" id="lastUpdate">Waiting…</div>
+          <button id="refreshBtn">Refresh now</button>
+        </div>
+      </div>
+
+      <!-- PLAYERS CARD: status.js renders the players table into #playersWrap -->
+      <div class="card players">
+        <h2>Players</h2>
+        <div id="playersWrap"></div>
+      </div>
+
+      <!-- MAPLIST CARD: status.js populates #mapRows -->
+      <div class="card maplist">
+        <h2>Maplist</h2>
+        <div class="rows" id="mapRows"></div>
+      </div>
+
+      <!-- RAW KV CARD: status.js writes the JSON into #rawKv -->
+      <!-- Need to remove this in a future version, no need to show to players -->
+      <div hidden class="card raw">
+        <h2>Raw KV</h2>
+        <details>
+          <summary>Show / hide raw KV JSON</summary>
+          <pre class="mono" id="rawKv">{}</pre>
+        </details>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sticky footer: pinned by CSS (no divider line). -->
+  <footer class="siteFooter">
+    Uses N4Admin extended beacon &copy; 2004 Neil Popplewell
+  </footer>
+
+  <!-- Status page behavior script (cache-busted) -->
+  <script src="/web/js/status.js"></script>
+</body>
+</html>

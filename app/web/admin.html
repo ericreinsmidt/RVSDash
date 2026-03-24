@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <!--
+  ==============================================================================
+  File: app/web/admin.html
+  Project: RVSDash - Raven Shield Dashboard (Status and Admin)
+  Author: Eric Reinsmidt
+
+  What this file does (high-level):
+  - Defines the Admin Dashboard HTML page served at GET /admin.
+  - Provides UI controls for sending allowlisted admin commands.
+  ==============================================================================
+  -->
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Raven Shield Admin</title>
+
+  <link rel="stylesheet" href="/web/css/admin.css">
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <h1>Raven Shield Admin</h1>
+        <div class="nav">
+          <span>Pages:</span>
+          <a href="/">/</a>
+          <a href="/status">/status</a>
+          <a href="/admin">/admin</a>
+        </div>
+      </div>
+
+      <div class="pill">Target: <b>__DEFAULT_TARGET__</b></div>
+    </div>
+
+    <div class="card">
+      <h2>allowlisted admin commands</h2>
+
+      <div class="small">
+        This UI only calls server endpoints that build allowlisted UDP admin payloads.
+        Results include <span class="mono">reply_text</span> when available.
+      </div>
+
+      <div class="forms">
+
+        <div class="row">
+          <div>
+            <div class="small"><b>Set Message of the Day</b></div>
+            <div class="small">MOTD (&lt;= 30 chars)</div>
+          </div>
+          <div class="rowControls">
+            <input id="motdText" type="text" maxlength="30" placeholder="Message of the Day" />
+            <button id="btnSetMOTD">Send</button>
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <div class="small"><b>Load Maplist</b></div>
+            <div class="small">INI name (no .ini)</div>
+          </div>
+          <div class="rowControls">
+            <input id="iniName" type="text" maxlength="64" placeholder="file_to_load" />
+            <button id="btnLoadINI">Send</button>
+          </div>
+        </div>
+
+        <!-- NEW: Say -->
+        <div class="row">
+          <div>
+            <div class="small"><b>Say</b></div>
+            <div class="small">Chat as <span class="mono">Webadmin:</span></div>
+          </div>
+          <div class="rowControls">
+            <input id="sayText" type="text" maxlength="120" placeholder="Hello everyone" />
+            <button id="btnSay">Send</button>
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <div class="small"><b>Restart</b></div>
+            <div class="small">Request server restart</div>
+          </div>
+          <div class="rowControls">
+            <button id="btnRestart">Restart server</button>
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <div class="small" style="color: orange"><b>Commands Below here <span style="color: red">REQUIRE</span> a restart after changing</b></div>
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <div class="small"><b>Set Round Time</b></div>
+            <div class="small">Round Time seconds (60 to 3600)</div>
+          </div>
+          <div class="rowControls">
+            <input id="rtSeconds" type="number" min="60" max="3600" step="1" value="300" />
+            <button id="btnSetRT">Send</button>
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <div class="small"><b>Set Difficulty</b></div>
+            <div class="small"></div>
+          </div>
+          <div class="rowControls">
+            <select id="diffLevel">
+              <option value="1">1 (Recruit)</option>
+              <option value="2" selected>2 (Veteran)</option>
+              <option value="3">3 (Elite)</option>
+            </select>
+            <button id="btnSetDiff">Send</button>
+          </div>
+        </div>
+
+      </div>
+
+      <details>
+        <summary>Command result</summary>
+        <pre class="mono" id="cmdOut">{}</pre>
+      </details>
+
+    </div>
+
+    <div class="card" style="margin-top:14px;">
+      <h2>Available maps + gametypes</h2>
+      <div class="small">
+        <!-- Read-only query using <span class="mono">AVAILABLEMAPS</span>. This does not send admin commands. -->
+      </div>
+
+      <div class="row" style="margin-top:10px;">
+        <div>
+          <div class="small"><b>AVAILABLE MAPS</b></div>
+          <div class="small">Fetch a list of maps and supported game modes.</div>
+        </div>
+        <div class="rowControls">
+          <button id="btnFetchMaps">Fetch maps</button>
+        </div>
+      </div>
+
+      <details id="mapsDetails" open style="margin-top:12px;">
+        <summary id="mapsSummary">Map list (click to hide)</summary>
+        <div id="mapsTableWrap" class="tableClip" style="margin-top:12px;"></div>
+      </details>
+    </div>
+
+  </div>
+
+  <footer class="siteFooter">
+    Uses N4Admin extended beacon &copy; 2004 Neil Popplewell
+  </footer>
+
+  <script src="/web/js/admin.js"></script>
+</body>
+</html>

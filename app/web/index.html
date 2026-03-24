@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <!--
+  ==============================================================================
+  File: app/web/index.html
+  Project: RVSDash - Raven Shield Dashboard (Status and Admin)
+  Author: Eric Reinsmidt
+
+  What this file does:
+  - Defines the landing page served at GET /.
+  - Provides links to:
+    - /status (status dashboard)
+    - /admin  (admin dashboard)
+  - Displays the default target (injected by backend using __DEFAULT_TARGET__).
+
+  How it works:
+  - The FastAPI backend reads this file from disk and returns it as HTML.
+  - The placeholder __DEFAULT_TARGET__ is replaced by app/main.py.
+  - Styling is provided by /web/css/landing.css.
+  - Any interactive enhancements (if present) live in /web/js/landing.js.
+  ==============================================================================
+  -->
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Raven Shield Dashboard</title>
+
+  <!-- Landing page stylesheet -->
+  <link rel="stylesheet" href="/web/css/landing.css">
+</head>
+<body>
+  <div class="wrap">
+    <h1>Raven Shield Dashboard</h1>
+
+    <!-- Backend injects the default target here by replacing __DEFAULT_TARGET__. -->
+    <div class="pill">Default target: <b>__DEFAULT_TARGET__</b></div>
+
+    <!-- Two main navigation cards -->
+    <div class="cards">
+      <div class="card">
+        <h2>Status</h2>
+        <div>View server state, players, maplist, and raw KV.</div>
+        <a class="btn" href="/status">View status</a>
+      </div>
+
+      <div class="card">
+        <h2>Admin</h2>
+        <div>Send allowlisted UDP admin commands.<p style="color: red;">(protect this endpoint)</p></div>
+        <a class="btn" href="/admin">View admin</a>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Sticky footer (pinned via CSS flex layout) -->
+  <footer class="siteFooter">
+    Uses N4Admin extended beacon &copy; 2004 Neil Popplewell
+  </footer>
+
+  <!-- Optional landing page JS -->
+  <script src="/web/js/landing.js"></script>
+</body>
+</html>

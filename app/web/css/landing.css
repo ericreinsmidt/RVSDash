@@ -1,0 +1,155 @@
+/*
+==============================================================================
+File: app/web/css/landing.css
+Project: RVSDash - Raven Shield Dashboard (Status and Admin)
+Author: Eric Reinsmidt
+
+What this file does:
+- Styles the landing page served at / (index.html).
+- Provides a clean, simple "two card" layout linking to:
+  - /status
+  - /admin
+- Uses the same dark/glass aesthetic as the other pages for consistency.
+==============================================================================
+*/
+
+:root{
+  /* Shared theme tokens */
+  --bg:#0b1220;
+  --card: rgba(255,255,255,0.06);
+  --card2: rgba(255,255,255,0.08);
+  --border: rgba(255,255,255,0.12);
+  --txt: rgba(255,255,255,0.92);
+  --muted: rgba(255,255,255,0.65);
+  --link:#8ab4ff;
+}
+
+html,body{
+  /* Reset and background */
+  margin:0;
+  height:100%;
+
+  /* Background texture and dark overlay */
+  background:
+    linear-gradient(rgba(11,18,32,0.65), rgba(11,18,32,0.65)),
+    url("../img/paper.jpg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+
+  /* Typography */
+  color: var(--txt);
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+}
+
+/* --- Sticky footer layout (pins footer to bottom) --- */
+body{
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.wrap{
+  /* Constrain width to keep landing page readable on wide screens */
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 28px 16px 40px;
+
+  /* This pushes the footer to the bottom when content is short */
+  flex: 1;
+}
+
+h1{
+  margin:0 0 6px;
+  font-size:20px;
+}
+
+.pill{
+  /* Inline metadata badge showing default target */
+  display:inline-block;
+  padding:6px 10px;
+  border:1px solid var(--border);
+  border-radius:999px;
+  background:rgba(255,255,255,0.04);
+  color:var(--muted);
+  font-size:12px;
+}
+
+.cards{
+  /* Responsive: stack on mobile, 2 columns on wide screens */
+  display:grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+@media (min-width: 860px){
+  .cards{
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.card{
+  /* Landing page card style */
+  background: var(--card);
+  border:1px solid var(--border);
+  border-radius:14px;
+  padding:14px;
+}
+
+.card h2{
+  margin:0 0 8px;
+  font-size:13px;
+  text-transform:uppercase;
+  letter-spacing:.2px;
+  color:var(--muted);
+}
+
+a.btn{
+  display:inline-block;
+  margin-top:10px;
+  color: var(--txt);
+  background: var(--card2);
+  border:1px solid rgba(255,255,255,0.12);
+  padding:10px 12px;
+  border-radius:12px;
+  text-decoration:none;
+  font-weight:700;
+}
+
+a.btn:hover{
+  border-color: rgba(255,255,255,0.22);
+}
+
+.small{
+  margin-top: 14px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.small a{
+  color: var(--link);
+  text-decoration:none;
+}
+
+.small a:hover{
+  text-decoration: underline;
+}
+
+code{
+  /* Inline code styling */
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  color: rgba(255,255,255,0.9);
+}
+
+/* Footer styling (no divider line) */
+.siteFooter{
+  margin-top: 0;
+  padding: 10px 12px;
+  text-align: center;
+  color: rgba(255,255,255,0.55);
+  font-size: 12px;
+  border-top: 0;
+  background: transparent;
+}
