@@ -42,6 +42,8 @@ from fastapi.responses import HTMLResponse, JSONResponse  # Response helpers.
 from fastapi.staticfiles import StaticFiles  # Used to serve static web assets.
 from pydantic import BaseModel, Field  # Used for validating request bodies.
 
+logger = logging.getLogger(__name__)
+
 # Configuration for default target server the dashboards interact with.
 from .config import DEFAULT_SERVER_IP, DEFAULT_SERVER_PORT
 
@@ -329,9 +331,10 @@ def api_admin_set_rt(body: SetRTBody):
 
         # Send it and return the standardized response.
         return _admin_send(payload)
-    except Exception as e:
+    except Exception:
         # Validation errors and runtime errors become 400 for client clarity.
-        return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
+        logger.exception("Error in /api/admin/set_rt")
+        return JSONResponse({"ok": False, "error": "Internal error"}, status_code=400)
 
 
 @app.post("/api/admin/set_motd")
@@ -342,8 +345,9 @@ def api_admin_set_motd(body: SetMOTDBody):
     try:
         payload = cmd_set_motd(body.motd)
         return _admin_send(payload)
-    except Exception as e:
-        return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
+    except Exception:
+        logger.exception("Error in /api/admin/set_motd")
+        return JSONResponse({"ok": False, "error": "Internal error"}, status_code=400)
 
 
 @app.post("/api/admin/load_ini")
@@ -356,8 +360,9 @@ def api_admin_load_ini(body: LoadINIBody):
 
         # Provide an operator note if the server applies changes asynchronously.
         return _admin_send(payload, note="Allow time for server to apply.")
-    except Exception as e:
-        return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
+    except Exception:
+        logger.exception("Error in /api/admin/load_ini")
+        return JSONResponse({"ok": False, "error": "Internal error"}, status_code=400)
 
 
 @app.post("/api/admin/say")
@@ -368,8 +373,9 @@ def api_admin_say(body: SayBody):
     try:
         payload = cmd_say(body.msg)
         return _admin_send(payload)
-    except Exception as e:
-        return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
+    except Exception:
+        logger.exception("Error in /api/admin/say")
+        return JSONResponse({"ok": False, "error": "Internal error"}, status_code=400)
 
 
 @app.post("/api/admin/restart")
@@ -382,8 +388,9 @@ def api_admin_restart():
     try:
         payload = cmd_restart()
         return _admin_send(payload, note="Server restart requested.")
-    except Exception as e:
-        return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
+    except Exception:
+        logger.exception("Error in /api/admin/restart")
+        return JSONResponse({"ok": False, "error": "Internal error"}, status_code=400)
 
 
 # CHANGE: set difficulty endpoint
@@ -397,5 +404,6 @@ def api_admin_set_diff_level(body: SetDiffLevelBody):
     try:
         payload = cmd_set_diff_level(body.level)
         return _admin_send(payload, note="Difficulty level update requested.")
-    except Exception as e:
-        return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
+    except Exception:
+        logger.exception("Error in /api/admin/set_diff_level")
+        return JSONResponse({"ok": False, "error": "Internal error"}, status_code=400)
