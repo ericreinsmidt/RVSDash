@@ -26,30 +26,36 @@
   <title>Raven Shield Dashboard</title>
 
   <!-- Landing page stylesheet -->
-  <link rel="stylesheet" href="/web/css/landing.css">
+  <link rel="stylesheet" href="/web/css/landing.css?v=2">
 </head>
 <body>
   <div class="wrap">
-    <h1>Raven Shield Dashboard</h1>
-
-    <!-- Backend injects the default target here by replacing __DEFAULT_TARGET__. -->
-    <div class="pill">Default target: <b>__DEFAULT_TARGET__</b></div>
+      <div class="top">
+        <h1>Raven Shield Dashboard</h1>
+        <div class="pill">Default target: __DEFAULT_TARGET__</div>
+      </div>
 
     <!-- Two main navigation cards -->
     <div class="cards">
       <div class="card">
         <h2>Status</h2>
-        <div>View server state, players, maplist, and raw KV.</div>
+        <div class="small">View server state, players, and current maplist</div>
         <a class="btn" href="/status">View status</a>
       </div>
 
       <div class="card">
+          <h2>Statistics</h2>
+          <div class="small">View server and player statistics</div>
+          <a class="btn" href="/stats">View stats</a>
+      </div>
+
+      <div class="card">
         <h2>Admin</h2>
-        <div>Send allowlisted UDP admin commands.<p style="color: red;">(protect this endpoint)</p></div>
+        <div class="small">Send allowlisted admin commands<p style="color: red;">(protect this endpoint)</p></div>
         <a class="btn" href="/admin">View admin</a>
       </div>
-    </div>
 
+    </div>
   </div>
 
   <!-- Sticky footer (pinned via CSS flex layout) -->

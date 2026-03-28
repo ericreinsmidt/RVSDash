@@ -21,8 +21,9 @@ How to use it:
 This repo provides
 * A **built-in** [uvicorn](https://uvicorn.dev) **web server** with [FastAPI](https://fastapi.tiangolo.com)
 * A **status dashboard** page (`/status`) that shows server summary, players, maplist, and raw KV.
+* A **stats dashboard** page (`/status`) that shows server and player statistics.
 * An **admin dashboard** page (`/admin`) that sends **allowlisted** UDP admin commands.
-* A small **landing page** (`/`) linking to both.
+* A small **landing page** (`/`) linking to all three.
 
 ## Requirements
 
@@ -34,7 +35,9 @@ This repo provides
 
 * On game server
 	* Place `N4Admin.u` in your `System` directory
-	* Edit `Ravenshield.ini` in your `System` directory
+	* Place `URLPast.u` in hyour `System` directory
+	* Place `N4IDMod.utx` in your `Textures` directory
+	* Edit `RavenShield.ini` in your `System` directory
 
 		* Take note of your `BeaconPort` value
 
@@ -48,11 +51,29 @@ This repo provides
 				[N4Admin.UDPBeaconEx]
 				AdminPassword=YOUR_ADMIN_PASSWORD # This is not the password for in-game admin, just for this tool
 
+		* Add
+
+				[urlPost.urlPost]
+				postHost=YOUR_DOMAIN_NAME.TLD
+				postURL=/api/ingest
+				postPort=YOUR_PORT
+				postIdent=YOUR_UNIQUE_SERVER_ID
+
+			- Note: this has not been tested with HTTPS, and should be assumed it will only work with HTTP
+
 	* Edit `Ravenshield.mod` in your `Mods` directory
-		* In `[Engine.GameEngine]` section comment out the default beacon and add in the N4Admin extended beacon underneath with
+		* In the `[Engine.GameEngine]` section, comment out the default beacon and add in the N4Admin extended beacon and URLPost underneath with
 
 				;ServerActors=IpDrv.UdpBeacon
 				ServerActors=N4Admin.UdpBeaconEx
+				ServerActors=urlPost.urlPost
+
+		* In the same section, add in the N4IDMod identification service for statistics with
+
+				ServerPackages=N4IDMod
+				ServerActors=N4IDMod.N4IDMod
+
+			- Note: after being installed and run once, you can edit `N44IDMod.ini` in the `System` directory to show players where the statistics can be viewed.
 
 * On machine running `RVSDash`
 	* Add `RVSDash` folder to the directory of your choice
@@ -90,30 +111,30 @@ This repo provides
 
 			uvicorn app.main:app --reload --host 127.0.0.1 --port 2003
 			
-		- Note: use `0.0.0.0` to bind instead of `127.0.0.1` if you intend to have this open outside your local machine
+		- Note: use `0.0.0.0` to bind instead of `127.0.0.1` if you intend to have this open outside your local machine.
 
 ## Open
 - Landing page http://127.0.0.1:2003/
 - Status page http://127.0.0.1:2003/status
-- Admin page http://127.0.0.1:2003/admin
-- Query: http://127.0.0.1:2003/api/query
-	- Note: Use appropriate IP address if bound to `0.0.0.0`
+- Statistics page http://127.0.0.1:2003/stats
+- Administration page http://127.0.0.1:2003/admin
+	- Note: Use appropriate IP address if bound to `0.0.0.0`.
 
 ## Important Note!
 * There is no authentication on the `admin` endpoint. This means it is up to you to secure it if this is exposed to the internet or an untrusted LAN. Otherwise, anyone with access to the `admin` endpoint can send commands to your game server.
 
 * There are many ways to do this
-	* Use HTTP basic access authentication (terrible idea. really.)
+	* Use HTTP basic access authentication (terrible idea. Really.)
 	* Use Cloudflare Access on the `/admin` endpoint
 	* Use Authelia
 	* etc
 
 ## To Do
-* Add information about various commands
+* Improve player and server stats
+* Add tooltips about existing admin commands
 * Add toggles for various simple game server settings
 * Add commands for inserting/deleting maps
 * Add command to create/save map lists
-* Implement player and server stats
 
 ## License and Notice
-* All code is licensed under MIT except `N4Admin.u`, which is © 2004 Neil Popplewell and is not covered by this license.
+* All code is licensed under MIT except `N4Admin.u`,`URLPost.u` (© 2004 Neil Popplewell) and `N4IDMod.utx` (© 2020 [Dateranoth](https://github.com/Dateranoth/RainbowSix-Ravenshield-N4Admin/releases)), which are covered under their respective licenses.

@@ -65,6 +65,15 @@ h1{
   font-size:20px;
 }
 
+.top{
+  display:flex;
+  gap:12px;
+  align-items:center;
+  justify-content:space-between;
+  flex-wrap:wrap;
+  margin-bottom:14px;
+}
+
 .pill{
   /* Inline metadata badge showing default target */
   display:inline-block;

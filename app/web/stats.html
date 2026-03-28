@@ -1,0 +1,109 @@
+<!-- stats.html -->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Raven Shield Stats</title>
+    <link rel="stylesheet" href="/web/css/stats.css?v=4" />
+    <script defer src="/web/js/stats.js?v=20260326-6"></script>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="top">
+        <div>
+          <h1>Raven Shield Stats</h1>
+          <div class="nav">
+            Pages:
+            <a href="/">/main</a>
+            <a href="/status">/status</a>
+            <a href="/stats">/statistics</a>
+            <a href="/admin">/administration</a>
+          </div>
+        </div>
+
+        <div class="pill">Target: __DEFAULT_TARGET__</div>
+      </div>
+
+      <div class="card" style="margin-bottom:12px;">
+        <h2>Filters</h2>
+        <div class="rows">
+          <div class="row">
+            <div class="k">Server ident (optional)</div>
+            <div class="v">
+              <input id="serverIdent" class="mono" placeholder="e.g. geek" style="width:min(420px,80vw); padding:8px 10px; border-radius:10px; border:1px solid rgba(255,255,255,0.12); background:rgba(0,0,0,0.25); color:rgba(255,255,255,0.92);" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+
+      <div class="grid">
+        <div class="card intro">
+          <h2>Overview</h2>
+          <div class="rows">
+            <div class="row">
+              <div class="k">Status</div>
+              <div class="v" id="statsStatus">Ready</div>
+            </div>
+            <div class="row">
+              <div class="k">Note</div>
+              <div class="v">This page is read-only.</div>
+            </div>
+          </div>
+
+          <div class="statusbar">
+            <div class="dot" id="dot"></div>
+            <div class="small" id="lastUpdate">Not loaded yet</div>
+            <button id="refreshBtn" type="button">Refresh now</button>
+          </div>
+        </div>
+
+        <div class="card tools">
+          <h2>Quick tools</h2>
+          <div class="rows">
+            <div class="row">
+              <div class="k">Local time</div>
+              <div class="v mono" id="localTime">—</div>
+            </div>
+            <div class="row">
+              <div class="k">Uptime (page)</div>
+              <div class="v mono" id="pageUptime">0s</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Totals per server</h2>
+          <div id="serversWrap" class="small">—</div>
+        </div>
+
+        <div class="card">
+          <h2>Totals per player</h2>
+          <div id="playersTotalsWrap" class="small">—</div>
+        </div>
+
+        <div class="card">
+          <h2>Stats per map</h2>
+          <div id="mapsWrap" class="small">—</div>
+        </div>
+
+        <div class="card">
+          <h2>Stats per game mode</h2>
+          <div id="modesWrap" class="small">—</div>
+        </div>
+
+
+        <div hidden class="card raw">
+          <h2>Raw payload</h2>
+          <details>
+            <summary>Show / hide raw JSON</summary>
+            <pre class="mono" id="rawOut">{}</pre>
+          </details>
+        </div>
+      </div>
+    </div>
+
+    <div class="siteFooter">Uses N4Admin extended beacon © 2004 Neil Popplewell</div>
+  </body>
+</html>
