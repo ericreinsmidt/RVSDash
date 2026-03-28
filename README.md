@@ -35,7 +35,7 @@ This repo provides
 
 * On game server
 	* Place `N4Admin.u` in your `System` directory
-	* Place `URLPast.u` in hyour `System` directory
+	* Place `URLPast.u` in your `System` directory
 	* Place `N4IDMod.utx` in your `Textures` directory
 	* Edit `RavenShield.ini` in your `System` directory
 
