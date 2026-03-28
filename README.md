@@ -21,7 +21,7 @@ How to use it:
 This repo provides
 * A **built-in** [uvicorn](https://uvicorn.dev) **web server** with [FastAPI](https://fastapi.tiangolo.com)
 * A **status dashboard** page (`/status`) that shows server summary, players, maplist, and raw KV.
-* A **stats dashboard** page (`/status`) that shows server and player statistics.
+* A **statistics dashboard** page (`/stats`) that shows server and player statistics.
 * An **admin dashboard** page (`/admin`) that sends **allowlisted** UDP admin commands.
 * A small **landing page** (`/`) linking to all three.
 
