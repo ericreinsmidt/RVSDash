@@ -537,9 +537,10 @@ async def api_ingest(request: Request):
             _append_ndjson(INGEST_LOG_PATH, record)
             return {"ok": sqlite_ok, "logged_to": INGEST_LOG_PATH, "parse_kind": parse_kind}
         return {"ok": sqlite_ok, "logged_to": None, "parse_kind": parse_kind}
-    except Exception as e:
-        # If the log write fails, report it (this mirrors your earlier contract behavior).
-        return JSONResponse({"ok": False, "error": f"Failed to write log: {e}"}, status_code=500)
+    except Exception:
+        # If the log write fails, log the exception server-side and return a generic error to the client.
+        logger.exception("NDJSON log write failed")
+        return JSONResponse({"ok": False, "error": "Failed to write log"}, status_code=500)
 
 
 ##########################################
