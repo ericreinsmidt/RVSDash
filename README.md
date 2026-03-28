@@ -16,7 +16,7 @@ How to use it:
 ==============================================================================
 -->
 
-# RVSDash - Raven Shield Dashboard (Status and Admin)
+# RVSDash - Raven Shield Dashboard (Status, Stats and Admin)
 
 This repo provides
 * A **built-in** [uvicorn](https://uvicorn.dev) **web server** with [FastAPI](https://fastapi.tiangolo.com)
