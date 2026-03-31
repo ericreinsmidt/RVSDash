@@ -1,0 +1,456 @@
+/*
+==============================================================================
+File: app/web/css/common.css
+Project: RVSDash - Raven Shield Dashboard (Status and Admin)
+Purpose:
+- Shared styles used across all pages.
+- Single source of truth for theme variables, layout primitives,
+  typography, cards, tables, buttons, nav, and footer.
+- Page-specific CSS files override or extend as needed.
+==============================================================================
+*/
+
+/* ---- Theme tokens ---- */
+:root{
+  --bg:#0b1220;
+  --card: rgba(255,255,255,0.06);
+  --card2: rgba(255,255,255,0.08);
+  --border: rgba(255,255,255,0.12);
+  --txt: rgba(255,255,255,0.92);
+  --muted: rgba(255,255,255,0.65);
+  --good:#31d0aa;
+  --bad:#ff5c7a;
+  --link:#8ab4ff;
+}
+
+/* ---- Reset + background ---- */
+*, *::before, *::after{
+  box-sizing: border-box;
+}
+
+html,body{
+  margin:0;
+  height:100%;
+  background:
+    linear-gradient(rgba(11,18,32,0.65), rgba(11,18,32,0.65)),
+    url("/web/img/paper.jpg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  color: var(--txt);
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+}
+
+body{
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+}
+
+/* ---- Page wrapper ---- */.wrap{
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 22px 16px 40px;
+  flex: 1;
+}
+
+/* ---- Header ---- */.top{
+  display:flex;
+  gap:12px;
+  align-items:center;
+  justify-content:space-between;
+  flex-wrap:wrap;
+  margin-bottom:14px;
+}
+
+h1{
+  font-size:18px;
+  margin:0;
+  letter-spacing:.2px;
+  font-weight:700;
+}.pill{
+  display:inline-block;
+  padding:6px 10px;
+  border:1px solid var(--border);
+  border-radius:999px;
+  background:rgba(255,255,255,0.04);
+  color:var(--muted);
+  font-size:12px;
+  white-space:nowrap;
+}
+
+/* ---- Navigation ---- */.nav{
+  font-size:12px;
+  color: var(--muted);
+}
+.nav a{
+  color: var(--link);
+  text-decoration:none;
+  margin-left:10px;
+}
+.nav a:hover{
+  text-decoration: underline;
+}
+
+/* ---- Grid layout ---- */.grid{
+  display:grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap:12px;
+}
+
+/* ---- Cards ---- */
+.card{
+  grid-column: span 12;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  will-change: backdrop-filter;
+  isolation: isolate;
+}
+.card h2{
+  margin:0 0 10px 0;
+  font-size:13px;
+  color:var(--muted);
+  font-weight:700;
+  letter-spacing:.2px;
+  text-transform:uppercase;
+}
+
+/* ---- Rows (key/value pairs) ---- */.rows{
+  display:grid;
+  grid-template-columns: 1fr;
+  gap:8px;
+}.row{
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  padding:10px 10px;
+  background:var(--card2);
+  border:1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  align-items: baseline;
+}
+.row > div{
+  min-width: 0;
+}
+.k{
+  color:var(--muted);
+  font-size:12px;
+}
+.v{
+  font-size:13px;
+  text-align:right;
+  word-break:break-word;
+  white-space: pre-wrap;
+}
+
+/* ---- Status bar + dot ---- */.statusbar{
+  display:flex;
+  gap:10px;
+  align-items:center;
+  flex-wrap:wrap;
+  margin-top:10px;
+}
+.dot{
+  width:10px;
+  height:10px;
+  border-radius:50%;
+  background:var(--muted);
+  box-shadow: 0 0 0 4px rgba(255,255,255,0.06);
+}
+.dot.good{ background: var(--good); }.dot.bad{ background: var(--bad); }
+
+/* ---- Typography helpers ---- */.small{
+  color: var(--muted);
+  font-size:12px;
+}
+.small a{
+  color: var(--link);
+  text-decoration:none;
+}
+.small a:hover{
+  text-decoration: underline;
+}
+.mono{
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+}
+.playerLink{
+  color: var(--link);
+  text-decoration: none;
+  border-bottom: 1px dotted rgba(138,180,255,0.4);
+}
+.playerLink:hover{
+  text-decoration: underline;
+  border-bottom: none;
+}
+
+/* ---- Buttons ---- */
+button{
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.05);
+  color: var(--txt);
+  padding: 8px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+button:hover{
+  background: rgba(255,255,255,0.08);
+}
+
+/* ---- Inputs ---- */
+input{
+  background: rgba(0,0,0,0.25);
+  border: 1px solid rgba(255,255,255,0.14);
+  color: var(--txt);
+  padding: 9px 10px;
+  border-radius: 10px;
+  min-width: 220px;
+}
+
+select{
+  background: rgba(0,0,0,0.25);
+  border: 1px solid rgba(255,255,255,0.14);
+  color: var(--txt);
+  padding: 9px 10px;
+  border-radius: 10px;
+  min-width: 220px;
+  font-family: inherit;
+  font-size: inherit;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='rgba(255,255,255,0.5)' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 32px;
+}
+
+select option{
+  background: #1a2233;
+  color: var(--txt);
+}
+
+/* ---- Tables ---- */.tableClip{
+  overflow-x: auto;
+  max-width: 100%;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.02);
+}
+
+table{
+  width:100%;
+  border-collapse: collapse;
+}
+
+th, td{
+  padding:10px 10px;
+  text-align:left;
+  border-bottom:1px solid rgba(255,255,255,0.08);
+  font-size:12px;
+  vertical-align: top;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: break-word;
+}
+
+th{
+  color: var(--muted);
+  font-weight: 800;
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing:.2px;
+}
+
+tr:hover td{
+  background: rgba(255,255,255,0.04);
+}
+
+/* ---- Details / summary / pre ---- */
+details{
+  background: var(--card2);
+  border:1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  padding: 10px;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+summary{
+  cursor:pointer;
+  color: var(--muted);
+  font-weight: 800;
+  text-transform: uppercase;
+  font-size: 12px;
+  letter-spacing:.2px;
+}
+
+pre{
+  margin:10px 0 0;
+  padding: 12px;
+  background: rgba(0,0,0,0.35);
+  border:1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  overflow:auto;
+  color: var(--txt);
+}
+
+/* ---- Tags ---- */
+.tag{
+  display: inline-block;
+  padding: 3px 8px;
+  margin: 2px 0;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.04);
+  font-size: 11px;
+  color: rgba(255,255,255,0.85);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- Toast notification system ---- */
+.toastContainer{
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+.toast{
+  padding: 12px 20px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  pointer-events: auto;
+  cursor: pointer;
+  animation: toastIn 0.25s ease-out;
+  max-width: 400px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+}
+.toast.ok{
+  background: rgba(53, 208, 127, 0.2);
+  border: 1px solid rgba(53, 208, 127, 0.4);
+  color: #35d07f;
+}
+.toast.err{
+  background: rgba(255, 107, 107, 0.2);
+  border: 1px solid rgba(255, 107, 107, 0.4);
+  color: #ff6b6b;
+}
+.toast.fadeOut{
+  animation: toastOut 0.3s ease-in forwards;
+}
+
+@keyframes toastIn{
+  from{ opacity: 0; transform: translateX(40px); }
+  to{ opacity: 1; transform: translateX(0); }
+}
+
+@keyframes toastOut{
+  from{ opacity: 1; transform: translateX(0); }
+  to{ opacity: 0; transform: translateX(40px); }
+}
+
+
+/* ---- Footer ---- */
+.siteFooter{
+  margin-top: 0;
+  padding: 10px 12px;
+  text-align: center;
+  color: rgba(255,255,255,0.55);
+  font-size: 12px;
+  border-top: 0;
+  background: transparent;
+}
+.siteFooter a{
+  color: var(--link);
+  text-decoration: none;
+}
+.siteFooter a:hover{
+  text-decoration: underline;
+}
+.subnotice{
+  margin-bottom: 8px;
+  color: rgba(255,255,255,0.45);
+  font-size: 11px;
+}
+/*
+ * Confirm modal — custom replacement for browser confirm() dialogs.
+ * Dark glass style matching dashboard cards.
+ */.modalOverlay{
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9000;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  pointer-events: none;
+}.modalOverlay.active{
+  opacity: 1;
+  pointer-events: auto;
+}.modalBox{
+  background: rgba(30, 32, 40, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  padding: 24px;
+  max-width: 420px;
+  width: 90%;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}.modalBox h3{
+  margin: 0 0 10px 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.9);
+}.modalBox p{
+  margin: 0 0 20px 0;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+  line-height: 1.5;
+}.modalActions{
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}.modalActions button{
+  padding: 8px 18px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}.modalBtnCancel{
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.6);
+}.modalBtnCancel:hover{
+  background: rgba(255, 255, 255, 0.14);
+}.modalBtnConfirm{
+  background: rgba(99, 179, 237, 0.2);
+  border: 1px solid rgba(99, 179, 237, 0.3);
+  color: #63b3ed;
+}.modalBtnConfirm:hover{
+  background: rgba(99, 179, 237, 0.35);
+}.modalBtnDanger{
+  background: rgba(255, 80, 80, 0.2);
+  border: 1px solid rgba(255, 80, 80, 0.3);
+  color: #ff4444;
+}.modalBtnDanger:hover{
+  background: rgba(255, 80, 80, 0.35);
+}

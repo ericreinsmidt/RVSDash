@@ -1,77 +1,72 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <!--
-  ==============================================================================
-  File: app/web/admin.html
-  Project: RVSDash - Raven Shield Dashboard (Status and Admin)
-  Author: Eric Reinsmidt
-
-  What this file does (high-level):
-  - Defines the Admin Dashboard HTML page served at GET /admin.
-  - Provides UI controls for sending allowlisted admin commands.
-  ==============================================================================
-  -->
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Raven Shield Admin</title>
-
-  <link rel="stylesheet" href="/web/css/admin.css">
+  <title>__SITE_TITLE__ Admin</title>
+  <link rel="stylesheet" href="/web/css/common.css?v=__CACHE_BUST__">
+  <link rel="stylesheet" href="/web/css/admin.css?v=__CACHE_BUST__">
 </head>
 <body>
   <div class="wrap">
     <div class="top">
       <div>
-        <h1>Raven Shield Admin</h1>
-        <div class="nav">
-          <span>Pages:</span>
-          <a href="/">/main</a>
-          <a href="/status">/status</a>
-          <a href="/stats">/statistics</a>
-          <a href="/admin">/administration</a>
-        </div>
+        <h1>__SITE_HEADING__ Admin</h1>
+        <div class="nav">__NAV__</div>
       </div>
-
       <div class="pill">Target: <b>__DEFAULT_TARGET__</b></div>
     </div>
 
     <div class="card">
-      <h2>allowlisted admin commands</h2>
+      <h2>Live Players</h2>
+      <div class="subnotice">Auto-refresh: 5s</div>
+      <div id="adminPlayersWrap" class="small">Loading…</div>
+    </div>
 
-      <div class="small">
-        This UI only calls server endpoints that build allowlisted UDP admin payloads.
-        Results include <span class="mono">reply_text</span> when available.
+    <div class="card">
+      <h2>Messenger</h2>
+      <div class="small" style="margin-bottom:10px;">
+        The server messenger broadcasts these three lines to players on a loop.
       </div>
+      <div class="forms">
+        <div class="row">
+          <div class="rowControls" style="flex:1;">
+            <label class="small" style="min-width:50px;"><b>Line 1</b></label>
+            <input id="messtext0" type="text" maxlength="100" placeholder="Messenger line 1" style="flex:1;">
+            <button onclick="sendMessText(0)">Set</button>
+          </div>
+        </div>
+        <div class="row">
+          <div class="rowControls" style="flex:1;">
+            <label class="small" style="min-width:50px;"><b>Line 2</b></label>
+            <input id="messtext1" type="text" maxlength="100" placeholder="Messenger line 2" style="flex:1;">
+            <button onclick="sendMessText(1)">Set</button>
+          </div>
+        </div>
+        <div class="row">
+          <div class="rowControls" style="flex:1;">
+            <label class="small" style="min-width:50px;"><b>Line 3</b></label>
+            <input id="messtext2" type="text" maxlength="100" placeholder="Messenger line 3" style="flex:1;">
+            <button onclick="sendMessText(2)">Set</button>
+          </div>
+        </div>
+        <div class="row">
+          <div class="rowControls">
+            <button onclick="sendAllMessText()">Set all three</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+        <div class="card">
+      <h2>Server Commands</h2>
 
       <div class="forms">
 
         <div class="row">
           <div>
-            <div class="small"><b>Set Message of the Day</b></div>
-            <div class="small">MOTD (&lt;= 30 chars)</div>
-          </div>
-          <div class="rowControls">
-            <input id="motdText" type="text" maxlength="30" placeholder="Message of the Day" />
-            <button id="btnSetMOTD">Send</button>
-          </div>
-        </div>
-
-        <div class="row">
-          <div>
-            <div class="small"><b>Load Maplist</b></div>
-            <div class="small">INI name (no .ini)</div>
-          </div>
-          <div class="rowControls">
-            <input id="iniName" type="text" maxlength="64" placeholder="file_to_load" />
-            <button id="btnLoadINI">Send</button>
-          </div>
-        </div>
-
-        <!-- NEW: Say -->
-        <div class="row">
-          <div>
             <div class="small"><b>Say</b></div>
-            <div class="small">Chat as <span class="mono">Webadmin:</span></div>
+            <div class="small">Chat as <span class="mono">ADMIN:</span></div>
           </div>
           <div class="rowControls">
             <input id="sayText" type="text" maxlength="120" placeholder="Hello everyone" />
@@ -81,8 +76,69 @@
 
         <div class="row">
           <div>
-            <div class="small"><b>Restart</b></div>
-            <div class="small">Request server restart</div>
+            <div class="small"><b>Set Message of the Day</b></div>
+            <div class="small">MOTD (&le; 30 chars)</div>
+          </div>
+          <div class="rowControls">
+            <input id="motdText" type="text" maxlength="30" placeholder="Message of the Day" />
+            <button id="btnSetMOTD">Send</button>
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <div class="small"><b>Set Max Players</b></div>
+            <div class="small">1–16 (1–8 for coop)</div>
+          </div>
+          <div class="rowControls">
+            <input id="maxPlayers" type="number" min="1" max="16" step="1" value="16" />
+            <button id="btnSetMaxPlayers">Send</button>
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <div class="small"><b>Game Password</b></div>
+            <div class="small">Alphanumeric. Leave blank to disable.</div>
+          </div>
+          <div class="rowControls">
+            <input id="gamePassword" type="text" maxlength="15" placeholder="(empty = disable)" />
+            <button id="btnLockServer">Set</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Server Control</h2>
+
+      <div class="forms">
+
+        <div class="row">
+          <div>
+            <div class="small"><b>Restart Round</b></div>
+            <div class="small">Restart the current round</div>
+          </div>
+          <div class="rowControls">
+            <button id="btnRestartRound">Restart round</button>
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <div class="small"><b>Restart Match</b></div>
+            <div class="small">Restart the current match (applies pending settings)</div>
+          </div>
+          <div class="rowControls">
+            <button id="btnRestartMatch">Restart match</button>
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <div class="small"><b>Restart Server</b></div>
+            <div class="small">Full server restart</div>
           </div>
           <div class="rowControls">
             <button id="btnRestart">Restart server</button>
@@ -91,14 +147,29 @@
 
         <div class="row">
           <div>
-            <div class="small" style="color: orange"><b>Commands Below here <span style="color: red">REQUIRE</span> a restart after changing</b></div>
+            <div class="small"><b>Messenger</b></div>
+            <div class="small">Toggle the auto-messenger on/off</div>
+          </div>
+          <div class="rowControls">
+            <button id="btnMessengerToggle">Toggle</button>
           </div>
         </div>
+
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Server Settings</h2>
+      <div class="small" style="margin-bottom:8px; color: orange;">
+        <b>Changes below <span style="color: red;">REQUIRE</span> a Restart Match to take effect.</b>
+      </div>
+
+      <div class="forms">
 
         <div class="row">
           <div>
             <div class="small"><b>Set Round Time</b></div>
-            <div class="small">Round Time seconds (60 to 3600)</div>
+            <div class="small">Seconds (60–3600)</div>
           </div>
           <div class="rowControls">
             <input id="rtSeconds" type="number" min="60" max="3600" step="1" value="300" />
@@ -109,7 +180,6 @@
         <div class="row">
           <div>
             <div class="small"><b>Set Difficulty</b></div>
-            <div class="small"></div>
           </div>
           <div class="rowControls">
             <select id="diffLevel">
@@ -122,24 +192,78 @@
         </div>
 
       </div>
-
-      <details>
-        <summary>Command result</summary>
-        <pre class="mono" id="cmdOut">{}</pre>
-      </details>
-
     </div>
 
-    <div class="card" style="margin-top:14px;">
-      <h2>Available maps + gametypes</h2>
-      <div class="small">
-        <!-- Read-only query using <span class="mono">AVAILABLEMAPS</span>. This does not send admin commands. -->
+    <div class="card">
+      <h2>Map Management</h2>
+
+      <div class="forms">
+
+        <div class="row">
+          <div>
+            <div class="small"><b>Load Maplist</b></div>
+            <div class="small">INI name (no.ini)</div>
+          </div>
+          <div class="rowControls">
+            <input id="iniName" type="text" maxlength="64" placeholder="file_to_load" />
+            <button id="btnLoadINI">Load</button>
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <div class="small"><b>Save Maplist</b></div>
+            <div class="small">INI name (no.ini)</div>
+          </div>
+          <div class="rowControls">
+            <input id="saveIniName" type="text" maxlength="64" placeholder="file_to_save" />
+            <button id="btnSaveINI">Save</button>
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <div class="small"><b>Go To Map</b></div>
+            <div class="small">Jump to map # in rotation (1-based)</div>
+          </div>
+          <div class="rowControls">
+            <input id="goMapIndex" type="number" min="1" max="32" step="1" value="1" />
+            <button id="btnGoMap">Go</button>
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <div class="small"><b>Remove Map</b></div>
+            <div class="small">Remove map # from rotation (1-based)</div>
+          </div>
+          <div class="rowControls">
+            <input id="removeMapIndex" type="number" min="1" max="32" step="1" value="1" />
+            <button id="btnRemoveMap">Remove</button>
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <div class="small"><b>Add Map</b></div>
+            <div class="small">Insert a map into the rotation</div>
+          </div>
+          <div class="rowControls">
+            <select id="addMapName"><option value="">— fetch maps first —</option></select>
+            <select id="addMapMode"><option value="">— select map —</option></select>
+            <input id="addMapPos" type="number" min="1" max="32" step="1" value="1" placeholder="Pos" style="width:60px;" />
+            <button id="btnAddMap">Add</button>
+          </div>
+        </div>
+
       </div>
 
-      <div class="row" style="margin-top:10px;">
+      <hr style="border:none; border-top:1px solid rgba(255,255,255,0.08); margin:16px 0;">
+
+      <div class="row">
         <div>
-          <div class="small"><b>AVAILABLE MAPS</b></div>
-          <div class="small">Fetch a list of maps and supported game modes.</div>
+          <div class="small"><b>Available Maps</b></div>
+          <div class="small">Fetch maps and game modes from the server.</div>
         </div>
         <div class="rowControls">
           <button id="btnFetchMaps">Fetch maps</button>
@@ -152,12 +276,72 @@
       </details>
     </div>
 
+    <div class="card">
+      <details>
+        <summary class="small" style="cursor:pointer; color: rgba(255,255,255,0.3);">Command result (debug)</summary>
+        <pre class="mono small" id="cmdOut" style="margin-top:8px;">{}</pre>
+      </details>
+    </div>
+
+    <div class="card">
+      <h2>Player Merge</h2>
+      <div class="small" style="margin-bottom:10px;">
+        Merge fragmented guest accounts (e.g. <span class="mono">Player_XXXXXXXX</span>) into their canonical player.
+        Auto-detected candidates appear below. Merging combines stats under the canonical account.
+      </div>
+
+      <div class="row" style="margin-bottom:10px;">
+        <div>
+          <div class="small"><b>Merge Candidates</b></div>
+          <div class="small">Auto-detected fragmented guest ubis.</div>
+        </div>
+        <div class="rowControls">
+          <button id="btnFetchCandidates">Detect candidates</button>
+        </div>
+      </div>
+
+      <div id="candidatesWrap" class="small">Click "Detect candidates" to scan.</div>
+
+      <hr style="border:none; border-top:1px solid rgba(255,255,255,0.08); margin:16px 0;">
+
+      <div class="row" style="margin-bottom:10px;">
+        <div>
+          <div class="small"><b>Current Aliases</b></div>
+          <div class="small">Active merge mappings. Remove to unlink.</div>
+        </div>
+        <div class="rowControls">
+          <button id="btnFetchAliases">Refresh aliases</button>
+        </div>
+      </div>
+
+      <div id="aliasesWrap" class="small">Click "Refresh aliases" to load.</div>
+    </div>
+
+    <div class="card">
+      <h2>Ban List</h2>
+      <div class="small" style="margin-bottom:10px;">
+        View and manage the server's ban list. Entries are GUIDs or IP addresses
+        stored in the game server's <span class="mono">BanList.ini</span>.
+      </div>
+
+      <div class="row" style="margin-bottom:10px;">
+        <div>
+          <div class="small"><b>Server Bans</b></div>
+          <div class="small">Fetch current bans from the game server.</div>
+        </div>
+        <div class="rowControls">
+          <button id="btnFetchBanList">Fetch ban list</button>
+        </div>
+      </div>
+
+      <div id="banListWrap" class="small">Click "Fetch ban list" to load.</div>
+    </div>
+
   </div>
 
-  <footer class="siteFooter">
-    Uses N4Admin &amp; URLPost &copy; 2004 Neil Popplewell &amp; N4IDMod &copy; 2020 &commat;Dateranoth
-  </footer>
+  __FOOTER__
 
-  <script src="/web/js/admin.js"></script>
+  <script src="/web/js/common.js?v=__CACHE_BUST__"></script>
+  <script src="/web/js/admin.js?v=__CACHE_BUST__"></script>
 </body>
 </html>

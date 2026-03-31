@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Player Detail — __SITE_TITLE__ Stats</title>
+    <link rel="stylesheet" href="/web/css/common.css?v=__CACHE_BUST__">
+    <link rel="stylesheet" href="/web/css/stats.css?v=__CACHE_BUST__" />
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="top">
+        <div>
+          <h1 id="pageTitle">Player Detail</h1>
+          <div class="nav">__NAV__</div>
+        </div>
+        <div class="pill">Target: __DEFAULT_TARGET__</div>
+      </div>
+
+      <div class="grid">
+        <div class="card intro">
+          <h2>Player Summary</h2>
+          <div id="summaryWrap" class="rows">
+            <div class="row">
+              <div class="k">Status</div>
+              <div class="v" id="playerStatus">Loading…</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card tools">
+          <h2>Identity</h2>
+          <div id="identityWrap" class="rows">
+            <div class="small">Loading…</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Stats by Map</h2>
+          <div id="byMapWrap" class="small">Loading…</div>
+        </div>
+
+        <div class="card">
+          <h2>Stats by Game Mode</h2>
+          <div id="byModeWrap" class="small">Loading…</div>
+        </div>
+      </div>
+    </div>
+
+    __FOOTER__
+
+    <script src="/web/js/common.js?v=__CACHE_BUST__"></script>
+    <script defer src="/web/js/player.js?v=__CACHE_BUST__"></script>
+  </body>
+</html>

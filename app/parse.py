@@ -36,6 +36,8 @@ Fields used:
 
 from typing import Dict, List, Optional
 
+import re
+
 # REPORTEXT internal delimiter (matches earlier implementation).
 DELIM = b"\xB6"
 
@@ -217,6 +219,7 @@ def parse_players(kv: Dict[str, str]) -> List[dict]:
 
     """
     names = _split_slash_list(kv.get("L1"))
+    ubi = _split_slash_list(kv.get("UB"))
 
     kills = _split_numeric_list(kv.get("O1"))
     deaths = _split_numeric_list(kv.get("DE"))
@@ -240,6 +243,7 @@ def parse_players(kv: Dict[str, str]) -> List[dict]:
         players.append(
             {
                 "name": name,
+                "ubi": get(ubi, i, ""),
                 "ping": get(ping, i, None),
                 "kills": get(kills, i, None),
                 "deaths": get(deaths, i, None),
@@ -386,3 +390,81 @@ def parse_availablemaps_from_datagrams(datagrams: List[bytes]) -> dict:
         "AM_count": str(len(am_entries)),
     }
     return {"maps": maps, "map_to_modes": map_to_modes, "raw": raw}
+
+def parse_banlist_from_datagrams(datagrams: List[bytes]) -> dict:
+    """
+    Parse BANLIST datagrams into a UI-friendly structure.
+
+    The ban list response uses the same ¶-delimited format as other
+    beacon data. Entries are prefixed with "BL" followed by an index
+    number and the banned value (GUID or IP).
+
+    Returns:
+      {
+        "bans": [{"index": 1, "value": "85CDECAA41264FD1B49D6640DE678A21", "type": "guid"},...],
+        "count": 5
+      }
+    """
+    if not datagrams:
+        return {"bans": [], "count": 0}
+
+    # Build segments from all datagrams
+    segments: List[str] = []
+    for d in datagrams:
+        if not d:
+            continue
+        try:
+            text = d.decode("latin-1")
+        except Exception:
+            continue
+
+        # Split on 0xB6 delimiter (same as other beacon data)
+        raw_parts = text.split("\xb6")
+        for part in raw_parts:
+            part = part.strip()
+            if part:
+                segments.append(part)
+
+    bans: List[dict] = []
+    for seg in segments:
+        # Match BL<index> <value>  e.g. "BL1 85CDECAA41264FD1B49D6640DE678A21"
+        if not seg.startswith("BL"):
+            continue
+
+        # Find the space separating the key from the value
+        space_idx = seg.find(" ")
+        if space_idx < 0:
+            continue
+
+        key = seg[:space_idx]
+        value = seg[space_idx + 1:].strip()
+
+        if not value:
+            continue
+
+        # Extract index from key (e.g. "BL1" -> 1)
+        idx_str = key[2:]
+        try:
+            idx = int(idx_str)
+        except ValueError:
+            continue
+
+        # Determine type: GUID (32 hex chars), IP, or partial IP
+        clean = value.replace("-", "")
+        if re.match(r"^[A-Fa-f0-9]{32}$", clean):
+            ban_type = "guid"
+        elif re.match(r"^[0-9]+\.[0-9.]*$", value):
+            ban_type = "ip"
+        else:
+            ban_type = "unknown"
+
+        bans.append({
+            "index": idx,
+            "value": value,
+            "type": ban_type,
+        })
+
+    # Sort by index
+    bans.sort(key=lambda b: b["index"])
+
+    return {"bans": bans, "count": len(bans)}

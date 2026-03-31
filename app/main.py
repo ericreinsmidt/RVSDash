@@ -13,6 +13,8 @@ This corrected version focuses on:
   - Always persist to SQLite (system of record)
   - Optionally append NDJSON as a write-ahead/audit log (env toggle)
 - Read-only stats APIs for /stats UI
+- Player alias/merge system for guest ubi fragmentation
+- Ingest logic decomposed into app/ingest.py
 
 ================================================================================
 """
@@ -27,10 +29,8 @@ import time
 import base64
 import logging
 import sqlite3
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional, List
-from urllib.parse import parse_qs, unquote_to_bytes, unquote_plus
 
 ##########################################
 # FastAPI imports
@@ -45,30 +45,70 @@ from pydantic import BaseModel, Field
 # Local app imports
 ##########################################
 
-# Configuration for default target server the dashboards interact with.
-from .config import DEFAULT_SERVER_IP, DEFAULT_SERVER_PORT
+from.config import (
+    DEFAULT_SERVER_IP,
+    DEFAULT_SERVER_PORT,
+    DEFAULT_SERVER_IDENT,
+    NAV_LINKS,
+    FOOTER_HTML,
+    SITE_TITLE,
+    SITE_HEADING,
+)
 
 # UDP transport logic: query server status and send admin commands.
-from .udp import udp_query_reportext, udp_send_admin_command, udp_query_availablemaps
+from.udp import (
+    udp_query_reportext,
+    udp_query_availablemaps,
+    udp_query_banlist,
+    udp_send_admin_command,
+)
 
 # Parsing logic: convert raw UDP datagrams into KV pairs and structured output.
-from .parse import (
+from.parse import (
     parse_kv_from_datagrams,
     build_structured_response,
     parse_availablemaps_from_datagrams,
+    parse_banlist_from_datagrams,
 )
 
 # Allowlisted admin command constructors.
-from .admincommands import cmd_set_rt, cmd_set_motd, cmd_load_ini, cmd_say, cmd_restart
-from .admincommands import cmd_set_diff_level
+from .admincommands import (
+    cmd_set_rt,
+    cmd_set_motd,
+    cmd_load_ini,
+    cmd_say,
+    cmd_restart,
+    cmd_set_diff_level,
+    cmd_kick_ubi,
+    cmd_ban_ubi,
+    cmd_remove_ban,
+    cmd_messtext,
+    cmd_restart_match,
+    cmd_restart_round,
+    cmd_lock_server,
+    cmd_set_max_players,
+    cmd_save_ini,
+    cmd_messenger_toggle,
+    cmd_change_map,
+    cmd_add_map,
+    cmd_remove_map,
+)
 
 # SQLite persistence helpers for stats storage.
-from app.rvsstats_db import (
+from.rvsstats_db import (
     db_init,
-    db_insert_ingest_event,
-    db_get_or_create_player,
-    db_add_player_nick,
-    db_upsert_player_map_stats,
+    db_detect_merge_candidates,
+    db_add_player_alias,
+    db_get_all_aliases,
+    db_remove_alias,
+)
+
+# Decomposed ingest logic.
+from.ingest import (
+    parse_request_body,
+    build_ingest_record,
+    persist_to_sqlite,
+    append_ndjson,
 )
 
 ##########################################
@@ -80,8 +120,6 @@ logger = logging.getLogger(__name__)
 ##########################################
 # Paths & configuration (AUTHORITATIVE)
 ##########################################
-# IMPORTANT: This section is the only place these values are defined.
-# Do not redefine DB_PATH / INGEST_LOG_PATH later in the file.
 
 # Directory containing this Python module (app/). Anchor all relative paths here.
 APP_DIR = Path(__file__).resolve().parent
@@ -90,8 +128,6 @@ APP_DIR = Path(__file__).resolve().parent
 WEB_DIR = APP_DIR / "web"
 
 # Unify ALL runtime artifacts under app/data/
-# - SQLite DB lives here
-# - NDJSON ingest log lives here (if enabled)
 DATA_DIR = APP_DIR / "data"
 
 # SQLite DB path (system of record)
@@ -101,14 +137,12 @@ DB_PATH = DATA_DIR / "rvsstats.sqlite3"
 INGEST_LOG_PATH = str(DATA_DIR / "ingest.ndjson")
 
 # Allow deployments to override ingest log location (optional).
-# If you truly want "everything under app/data", do NOT set RVSDASH_INGEST_LOG elsewhere.
 INGEST_LOG_PATH = os.environ.get("RVSDASH_INGEST_LOG", INGEST_LOG_PATH)
 
 # Safety cap to avoid unbounded disk/memory usage for ingestion
-MAX_INGEST_BODY_BYTES = int(os.environ.get("RVSDASH_MAX_INGEST_BODY_BYTES", str(256 * 1024)))  # 256 KB
+MAX_INGEST_BODY_BYTES = int(os.environ.get("RVSDASH_MAX_INGEST_BODY_BYTES", str(256 * 1024)))
 
 # NDJSON write-ahead/audit log toggle (default: enabled)
-# Set RVSDASH_ENABLE_NDJSON_LOG=0 to disable.
 ENABLE_NDJSON_LOG = (os.environ.get("RVSDASH_ENABLE_NDJSON_LOG", "1").strip() != "0")
 
 ##########################################
@@ -130,243 +164,8 @@ def _startup_init_db():
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     db_init(DB_PATH)
 
-
-##########################################
-# NDJSON helper functions
-##########################################
-
-def _ensure_ingest_dir() -> None:
-    """
-    Ensure the parent directory of INGEST_LOG_PATH exists.
-    This supports the NDJSON write-ahead/audit log when enabled.
-    """
-    os.makedirs(os.path.dirname(INGEST_LOG_PATH) or ".", exist_ok=True)
-
-
-def _append_ndjson(path: str, obj: Dict[str, Any]) -> None:
-    """
-    Append a single JSON object as one line of NDJSON.
-    This is intentionally "append-only" and cheap to write.
-
-    NOTE: This function expects a *string path*, not a Path object.
-    """
-    _ensure_ingest_dir()
-    line = json.dumps(obj, ensure_ascii=False, separators=(",", ":"))
-    with open(path, "a", encoding="utf-8") as f:
-        f.write(line + "\n")
-
-
-##########################################
-# URLPost parsing + normalization (for legacy ingest payloads)
-##########################################
-
-def _form_fallback_parse_bytes(body: bytes) -> Dict[str, Any]:
-    """
-    Bytes-safe fallback parser for application/x-www-form-urlencoded payloads.
-
-    Important property:
-    - DOES NOT percent-decode values.
-    - Returns values as text while preserving raw %XX sequences exactly,
-      so later stages can do: unquote_to_bytes(v).decode('cp1252').
-    """
-    b = body or b""
-    # Observed odd prefix: \r\n&key=...
-    b = b.lstrip(b"\r\n\t ").lstrip(b"&")
-
-    out: Dict[str, Any] = {}
-    if not b:
-        return out
-
-    for part in b.split(b"&"):
-        if not part:
-            continue
-        if b"=" in part:
-            k_raw, v_raw = part.split(b"=", 1)
-        else:
-            k_raw, v_raw = part, b""
-
-        k = k_raw.decode("ascii", errors="replace")
-
-        # Keep value as latin-1 so bytes 0x00-0xFF round-trip; DO NOT unquote here.
-        v = v_raw.decode("latin-1", errors="replace")
-
-        if k in out:
-            if isinstance(out[k], list):
-                out[k].append(v)
-            else:
-                out[k] = [out[k], v]
-        else:
-            out[k] = v
-
-    return out
-
-
-def _split_urlpost_list(v: Any) -> list:
-    """
-    URLPost convention: list values are sent like "/a/b/c" (leading slash).
-    Empty list may be "" or "/".
-    """
-    if v is None:
-        return []
-    s = str(v)
-    if not s:
-        return []
-    s = s.strip()
-    if s in ("/",):
-        return []
-    if s.startswith("/"):
-        s = s[1:]
-    if not s:
-        return []
-    return s.split("/")
-
-
-def _as_int(x: Any) -> Optional[int]:
-    try:
-        if x is None:
-            return None
-        s = str(x).strip()
-        if s == "":
-            return None
-        return int(float(s))
-    except Exception:
-        return None
-
-
-def _as_float(x: Any) -> Optional[float]:
-    try:
-        if x is None:
-            return None
-        s = str(x).strip()
-        if s == "":
-            return None
-        return float(s)
-    except Exception:
-        return None
-
-
-def normalize_urlpost(d: Optional[Dict[str, Any]]) -> Dict[str, Any]:
-    """
-    Convert legacy URLPost flat dict into a structured shape:
-      {
-        server: {ident, map, mode, sbpt, vs, rt},
-        totals: {t_k, t_d, t_s, t_tk, t_n},
-        players: [{idx, name, ubi, start_ubi, ip, kills, deaths, hits, fired, ...}],
-        warnings: [...]
-      }
-
-    This is additive: does NOT mutate the original dict.
-    """
-    d = d or {}
-    warnings = []
-
-    server = {
-        "ident": d.get("ident", ""),
-        "map": d.get("E1", ""),
-        "mode": d.get("F1", ""),
-        "sbpt": d.get("SBPT", ""),
-        "vs": d.get("VS", ""),
-        "rt": _as_float(d.get("RT", "")),
-    }
-
-    totals = {
-        "t_k": _as_int(d.get("T_K", "")),
-        "t_d": _as_int(d.get("T_D", "")),
-        "t_s": _as_int(d.get("T_S", "")),
-        "t_tk": _as_int(d.get("T_TK", "")),
-        "t_n": _as_int(d.get("T_N", "")),
-    }
-
-    def _decode_urlpost_text(s: Any) -> str:
-        """
-        URLPost sometimes sends percent-encoded bytes that are NOT UTF-8.
-        Strategy:
-        - If string contains '%' then percent-decode to raw bytes and decode using cp1252.
-        - Else return as plain string.
-        """
-        if s is None:
-            return ""
-        t = str(s)
-        if "%" not in t:
-            return t
-        try:
-            b = unquote_to_bytes(t)
-            return b.decode("cp1252", errors="replace")
-        except Exception:
-            return unquote_plus(t)
-
-    # Per-player list fields
-    names = _split_urlpost_list(d.get("L1", ""))
-    ubi = _split_urlpost_list(d.get("UB", ""))
-    start_ubi = _split_urlpost_list(d.get("US", ""))
-    ip = _split_urlpost_list(d.get("PGID", ""))
-
-    kills = _split_urlpost_list(d.get("O1", ""))
-    deaths = _split_urlpost_list(d.get("DE", ""))
-    hits = _split_urlpost_list(d.get("HI", ""))
-    fired = _split_urlpost_list(d.get("RF", ""))
-
-    rp = _split_urlpost_list(d.get("RP", ""))
-    rs = _split_urlpost_list(d.get("RS", ""))
-    hs = _split_urlpost_list(d.get("HS", ""))
-    nk = _split_urlpost_list(d.get("NK", ""))
-    s1 = _split_urlpost_list(d.get("S1", ""))
-    tk = _split_urlpost_list(d.get("TK", ""))
-    td = _split_urlpost_list(d.get("TD", ""))
-    kb = _split_urlpost_list(d.get("KB", ""))
-
-    lengths = {
-        "L1": len(names), "UB": len(ubi), "US": len(start_ubi), "PGID": len(ip),
-        "O1": len(kills), "DE": len(deaths), "HI": len(hits), "RF": len(fired),
-        "RP": len(rp), "RS": len(rs), "HS": len(hs), "NK": len(nk), "S1": len(s1),
-        "TK": len(tk), "TD": len(td), "KB": len(kb),
-    }
-    n = max(lengths.values() or [0])
-
-    nonzero = {k: v for k, v in lengths.items() if v}
-    if nonzero:
-        min_len = min(nonzero.values())
-        max_len = max(nonzero.values())
-        if min_len != max_len:
-            warnings.append({"type": "list_length_mismatch", "lengths": nonzero})
-
-    def get_i(arr: list, i: int) -> str:
-        return arr[i] if i < len(arr) else ""
-
-    players_out = []
-    for i in range(n):
-        name_i = _decode_urlpost_text(get_i(names, i))
-        ubi_i = _decode_urlpost_text(get_i(ubi, i))
-        ip_i = get_i(ip, i)
-        kb_i = _decode_urlpost_text(get_i(kb, i))
-
-        # CRITICAL FIX: idx must use "i" not "I"
-        players_out.append({
-            "idx": i,
-            "name": name_i,
-            "ubi": ubi_i,
-            "start_ubi": _decode_urlpost_text(get_i(start_ubi, i)),
-            "ip": ip_i,
-            "kills": _as_int(get_i(kills, i)),
-            "deaths": _as_int(get_i(deaths, i)),
-            "hits": _as_int(get_i(hits, i)),
-            "fired": _as_int(get_i(fired, i)),
-            "rp": _as_int(get_i(rp, i)),
-            "rs": _as_int(get_i(rs, i)),
-            "hs": _as_int(get_i(hs, i)),
-            "nk": _as_int(get_i(nk, i)),
-            "s1": _as_int(get_i(s1, i)),
-            "tk": _as_int(get_i(tk, i)),
-            "td": _as_int(get_i(td, i)),
-            "kb": kb_i,
-        })
-
-    return {
-        "server": server,
-        "totals": totals,
-        "players": players_out,
-        "warnings": warnings,
-    }
+# Cache-bust token: changes every time the app restarts.
+_CACHE_BUST = str(int(time.time()))
 
 
 ##########################################
@@ -378,17 +177,10 @@ async def api_ingest(request: Request):
     """
     Ingest endpoint (single authoritative handler).
 
-    Behavior:
-    1) Parse input (JSON or form) into a dict, with a fallback parser for "weird" URLPost bodies.
-    2) Normalize URLPost-style fields into {server, totals, players}.
+    1) Parse input (JSON or form) with fallback for URLPost bodies.
+    2) Normalize URLPost fields into {server, totals, players}.
     3) Persist to SQLite (system of record).
-    4) Optionally append to NDJSON audit log (write-ahead log) if ENABLE_NDJSON_LOG=1.
-
-    IMPORTANT:
-    - This route is intentionally tolerant:
-      - SQLite persist errors are logged but do not necessarily kill the request,
-        HOWEVER if NDJSON is enabled and fails, the request should still indicate an error
-        (you can change this policy, but this mirrors your earlier behavior).
+    4) Optionally append to NDJSON audit log.
     """
     body = await request.body()
     body = body or b""
@@ -399,329 +191,575 @@ async def api_ingest(request: Request):
             status_code=413,
         )
 
-    ctype = (request.headers.get("content-type") or "").lower()
+    parsed, parse_kind = await parse_request_body(request)
+    record = build_ingest_record(request, body, parsed, parse_kind)
 
-    parsed: Optional[Dict[str, Any]] = None
-    parse_kind = "raw"
+    sqlite_ok = persist_to_sqlite(str(DB_PATH), record, parsed)
 
-    if "application/json" in ctype:
-        try:
-            parsed = await request.json()
-            parse_kind = "json"
-        except Exception:
-            parsed = None
-            parse_kind = "json_parse_error"
-    elif ("application/x-www-form-urlencoded" in ctype) or ("multipart/form-data" in ctype):
-        try:
-            form = await request.form()
-            out: Dict[str, Any] = {}
-            for k in form.keys():
-                vals = form.getlist(k)
-                out[k] = vals[0] if len(vals) == 1 else vals
-            parsed = out
-            parse_kind = "form"
-        except Exception:
-            try:
-                parsed = _form_fallback_parse_bytes(body)
-                parse_kind = "form_fallback"
-            except Exception:
-                parsed = None
-                parse_kind = "form_parse_error"
-
-    now = datetime.now(timezone.utc)
-    record: Dict[str, Any] = {
-        "ts": now.isoformat(),
-        "epoch_ms": int(time.time() * 1000),
-        "client": {
-            "host": getattr(request.client, "host", None),
-            "port": getattr(request.client, "port", None),
-        },
-        "http": {
-            "method": request.method,
-            "path": request.url.path,
-            "query": str(request.url.query or ""),
-            "content_type": request.headers.get("content-type"),
-            "user_agent": request.headers.get("user-agent"),
-        },
-        "parse_kind": parse_kind,
-        "data": parsed,
-        "raw": body.decode("utf-8", errors="replace"),
-    }
-
-    # Add a normalized view for URLPost-style payloads
-    try:
-        norm_full = normalize_urlpost(parsed if isinstance(parsed, dict) else None)
-        record["normalized"] = {
-            "server": norm_full.get("server"),
-            "totals": norm_full.get("totals"),
-            "players": norm_full.get("players"),
-        }
-        record["normalize_warnings"] = norm_full.get("warnings", [])
-    except Exception as e:
-        record["normalized"] = None
-        record["normalize_warnings"] = [{"type": "normalize_error", "error": str(e)}]
-
-    # Persist to SQLite (system of record).
-    # We treat this as best-effort, but in your workflow you likely want it to succeed.
-    # If you want to fail the request when SQLite fails, change except behavior.
-    sqlite_ok = True
-    try:
-        norm = record.get("normalized") if isinstance(record.get("normalized"), dict) else {}
-        srv = norm.get("server") if isinstance(norm.get("server"), dict) else {}
-        players = norm.get("players") if isinstance(norm.get("players"), list) else []
-
-        server_ident = str(srv.get("ident") or "").strip()
-        game_mode = str(srv.get("mode") or "").strip()
-        map_name = str(srv.get("map") or "").strip()
-
-        # Fallback to raw URLPost keys if normalized missing.
-        if isinstance(parsed, dict):
-            server_ident = server_ident or str(parsed.get("ident") or "").strip()
-            game_mode = game_mode or str(parsed.get("F1") or "").strip()
-            map_name = map_name or str(parsed.get("E1") or "").strip()
-
-        con = sqlite3.connect(str(DB_PATH))
-        try:
-            event = {
-                "ts": record.get("ts"),
-                "server_ident": server_ident,
-                "game_mode": game_mode,
-                "map": map_name,
-                "raw_json": record,  # store full ingest record
-            }
-            event_id = db_insert_ingest_event(con, event)
-
-            def to_int(x):
-                try:
-                    return int(x)
-                except Exception:
-                    return 0
-
-            for p in players:
-                if not isinstance(p, dict):
-                    continue
-
-                ubi = str(p.get("ubi") or "").strip()
-                nick = str(p.get("name") or "").strip()
-
-                if not server_ident or not ubi:
-                    continue
-
-                player_id = db_get_or_create_player(con, server_ident=server_ident, ubi=ubi)
-                if nick:
-                    db_add_player_nick(con, player_id=player_id, nick=nick)
-
-                db_upsert_player_map_stats(
-                    con,
-                    player_id=player_id,
-                    game_mode=game_mode,
-                    map_name=map_name,
-                    add_kills=to_int(p.get("kills")),
-                    add_deaths=to_int(p.get("deaths")),
-                    add_fired=to_int(p.get("fired")),
-                    add_hits=to_int(p.get("hits")),
-                    add_rounds=1,
-                    event_id=event_id,
-                )
-
-            con.commit()
-        finally:
-            con.close()
-    except Exception:
-        sqlite_ok = False
-        logger.exception("sqlite persist failed")
-
-    # NDJSON audit log (optional)
     try:
         if ENABLE_NDJSON_LOG:
-            _append_ndjson(INGEST_LOG_PATH, record)
+            append_ndjson(INGEST_LOG_PATH, record)
             return {"ok": sqlite_ok, "logged_to": INGEST_LOG_PATH, "parse_kind": parse_kind}
         return {"ok": sqlite_ok, "logged_to": None, "parse_kind": parse_kind}
-    except Exception:
-        # If the log write fails, log the exception server-side and return a generic error to the client.
-        logger.exception("NDJSON log write failed")
-        return JSONResponse({"ok": False, "error": "Failed to write log"}, status_code=500)
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": f"Failed to write log: {e}"}, status_code=500)
 
 
 ##########################################
 # HTML routes
 ##########################################
 
+def _build_nav_html() -> str:
+    """Build the shared navigation links HTML from config."""
+    links = " ".join(
+        f'<a href="{href}">{label}</a>' for href, label in NAV_LINKS
+    )
+    return f'<span>Pages:</span> {links}'
+
+
+def _build_footer_html() -> str:
+    """Build the shared footer HTML from config."""
+    return f'<footer class="siteFooter">{FOOTER_HTML}</footer>'
+
+
+def _render_html(filename: str) -> HTMLResponse:
+    """Read an HTML file, inject shared fragments and config values."""
+    html = (WEB_DIR / filename).read_text("utf-8")
+    html = html.replace("__DEFAULT_TARGET__", f"{DEFAULT_SERVER_IP}:{DEFAULT_SERVER_PORT}")
+    html = html.replace("__CACHE_BUST__", _CACHE_BUST)
+    html = html.replace("__NAV__", _build_nav_html())
+    html = html.replace("__FOOTER__", _build_footer_html())
+    html = html.replace("__SITE_TITLE__", SITE_TITLE)
+    html = html.replace("__SITE_HEADING__", SITE_HEADING)
+    html = html.replace("__SERVER_IDENT__", DEFAULT_SERVER_IDENT)
+    return HTMLResponse(html)
+
+
 @app.get("/", response_class=HTMLResponse)
 def index():
-    html = (WEB_DIR / "index.html").read_text("utf-8")
-    html = html.replace("__DEFAULT_TARGET__", f"{DEFAULT_SERVER_IP}:{DEFAULT_SERVER_PORT}")
-    return HTMLResponse(html)
+    return _render_html("index.html")
 
 
 @app.get("/status", response_class=HTMLResponse)
 def status_page():
-    html = (WEB_DIR / "status.html").read_text("utf-8")
-    html = html.replace("__DEFAULT_TARGET__", f"{DEFAULT_SERVER_IP}:{DEFAULT_SERVER_PORT}")
-    return HTMLResponse(html)
+    return _render_html("status.html")
 
 
 @app.get("/admin", response_class=HTMLResponse)
 def admin_page():
-    html = (WEB_DIR / "admin.html").read_text("utf-8")
-    html = html.replace("__DEFAULT_TARGET__", f"{DEFAULT_SERVER_IP}:{DEFAULT_SERVER_PORT}")
-    return HTMLResponse(html)
+    return _render_html("admin.html")
 
 
 @app.get("/stats", response_class=HTMLResponse)
 def stats_page():
-    html = (WEB_DIR / "stats.html").read_text("utf-8")
-    html = html.replace("__DEFAULT_TARGET__", f"{DEFAULT_SERVER_IP}:{DEFAULT_SERVER_PORT}")
-    return HTMLResponse(html)
+    return _render_html("stats.html")
+
+
+@app.get("/player", response_class=HTMLResponse)
+def player_page():
+    return _render_html("player.html")
 
 
 ##########################################
-# Stats API (read-only)
+# Stats API (read-only, alias-aware)
 ##########################################
 
-def _db_con() -> sqlite3.Connection:
+from contextlib import contextmanager
+
+@contextmanager
+def _db_ctx():
+    """Context manager for read-only stats queries."""
     con = sqlite3.connect(str(DB_PATH))
     con.row_factory = sqlite3.Row
-    return con
+    try:
+        yield con
+    finally:
+        con.close()
+
+
+def _stats_query(
+    select_cols: str,
+    group_by: str,
+    order_by: str = "fired DESC",
+    server_ident: Optional[str] = None,
+    limit: Optional[int] = None,
+    where_table: str = "p2",
+) -> dict:
+    """
+    Shared stats query builder.
+
+    All stats queries share the same JOIN structure (player_map_stats → players → aliases).
+    This helper builds and executes the query, returning {"ok": True, "rows": [...]}.
+    """
+    try:
+        with _db_ctx() as con:
+            conditions = [f"p2.ubi NOT LIKE 'JOHNDOE%'"]
+            args: List[object] = []
+            if server_ident:
+                conditions.append(f"{where_table}.server_ident = ?")
+                args.append(server_ident)
+            where = "WHERE " + " AND ".join(conditions)
+
+            sql = f"""
+                SELECT {select_cols}
+                FROM player_map_stats s
+                JOIN players p ON p.id = s.player_id
+                LEFT JOIN player_aliases pa ON pa.alias_player_id = p.id
+                JOIN players p2 ON p2.id = COALESCE(pa.canonical_player_id, p.id)
+                {where}
+                GROUP BY {group_by}
+                ORDER BY {order_by}
+            """
+
+            if limit is not None:
+                sql += " LIMIT ?"
+                args.append(limit)
+
+            rows = con.execute(sql, args).fetchall()
+            return {"ok": True, "rows": [dict(r) for r in rows]}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
 
 
 @app.get("/api/stats/servers")
 def api_stats_servers(server_ident: Optional[str] = None):
-    con = _db_con()
-    try:
-        where = ""
-        args: List[object] = []
-        if server_ident:
-            where = "WHERE p.server_ident = ?"
-            args.append(server_ident)
-
-        rows = con.execute(
-            f"""
-            SELECT
-              p.server_ident AS server_ident,
-              SUM(s.kills) AS kills,
-              SUM(s.deaths) AS deaths,
-              SUM(s.fired) AS fired,
-              SUM(s.hits) AS hits,
-              SUM(s.rounds_played) AS rounds_played
-            FROM player_map_stats s
-            JOIN players p ON p.id = s.player_id
-            {where}
-            GROUP BY p.server_ident
-            ORDER BY fired DESC
-            """,
-            args,
-        ).fetchall()
-
-        return {"ok": True, "rows": [dict(r) for r in rows]}
-    finally:
-        con.close()
+    return _stats_query(
+        select_cols="""
+            p2.server_ident AS server_ident,
+            SUM(s.kills) AS kills,
+            SUM(s.deaths) AS deaths,
+            SUM(s.fired) AS fired,
+            SUM(s.hits) AS hits,
+            SUM(s.rounds_played) AS rounds_played
+        """,
+        group_by="p2.server_ident",
+        order_by="fired DESC",
+        server_ident=server_ident,
+    )
 
 
 @app.get("/api/stats/players")
 def api_stats_players(server_ident: Optional[str] = None, limit: int = 200):
     limit = max(1, min(int(limit or 200), 1000))
-    con = _db_con()
-    try:
-        where = ""
-        args: List[object] = []
-        if server_ident:
-            where = "WHERE p.server_ident = ?"
-            args.append(server_ident)
-
-        rows = con.execute(
-            f"""
-            SELECT
-              p.server_ident AS server_ident,
-              p.ubi AS ubi,
-              SUM(s.kills) AS kills,
-              SUM(s.deaths) AS deaths,
-              SUM(s.fired) AS fired,
-              SUM(s.hits) AS hits,
-              SUM(s.rounds_played) AS rounds_played
-            FROM player_map_stats s
-            JOIN players p ON p.id = s.player_id
-            {where}
-            GROUP BY p.server_ident, p.ubi
-            ORDER BY fired DESC
-            LIMIT ?
-            """,
-            [*args, limit],
-        ).fetchall()
-
-        return {"ok": True, "rows": [dict(r) for r in rows]}
-    finally:
-        con.close()
+    return _stats_query(
+        select_cols="""
+            p2.server_ident AS server_ident,
+            p2.ubi AS ubi,
+            SUM(s.kills) AS kills,
+            SUM(s.deaths) AS deaths,
+            SUM(s.fired) AS fired,
+            SUM(s.hits) AS hits,
+            SUM(s.rounds_played) AS rounds_played,
+            CAST(
+              (
+                (
+                  ( (CAST(SUM(s.kills) AS REAL) / MAX(SUM(s.deaths), 1)) * 1000.0 * (SUM(s.rounds_played) / 500.0) )
+                  + ( (CAST(SUM(s.hits) AS REAL) / MAX(SUM(s.fired), 1)) * 50.0 * (SUM(s.rounds_played) / 500.0) )
+                  + ( (CAST(SUM(s.kills) AS REAL) / MAX(SUM(s.deaths), 1)) * 1000.0 )
+                  + ( (CAST(SUM(s.hits) AS REAL) / MAX(SUM(s.fired), 1)) * 40.0 )
+                  + SUM(s.rounds_played)
+                )
+                * CASE
+                    WHEN SUM(s.rounds_played) < 10  THEN 0.1
+                    WHEN SUM(s.rounds_played) < 20  THEN 0.2
+                    WHEN SUM(s.rounds_played) < 30  THEN 0.4
+                    WHEN SUM(s.rounds_played) < 50  THEN 0.6
+                    WHEN SUM(s.rounds_played) < 100 THEN 0.8
+                    ELSE 1.0
+                  END
+              ) AS INTEGER
+            ) AS score
+        """,
+        group_by="COALESCE(pa.canonical_player_id, p.id)",
+        order_by="score DESC",
+        server_ident=server_ident,
+        limit=limit,
+    )
 
 
 @app.get("/api/stats/maps")
 def api_stats_maps(server_ident: Optional[str] = None, limit: int = 200):
     limit = max(1, min(int(limit or 200), 1000))
-    con = _db_con()
-    try:
-        where = ""
-        args: List[object] = []
-        if server_ident:
-            where = "WHERE p.server_ident = ?"
-            args.append(server_ident)
-
-        rows = con.execute(
-            f"""
-            SELECT
-              s.map AS map,
-              SUM(s.kills) AS kills,
-              SUM(s.deaths) AS deaths,
-              SUM(s.fired) AS fired,
-              SUM(s.hits) AS hits,
-              SUM(s.rounds_played) AS rounds_played
-            FROM player_map_stats s
-            JOIN players p ON p.id = s.player_id
-            {where}
-            GROUP BY s.map
-            ORDER BY fired DESC
-            LIMIT ?
-            """,
-            [*args, limit],
-        ).fetchall()
-
-        return {"ok": True, "rows": [dict(r) for r in rows]}
-    finally:
-        con.close()
+    return _stats_query(
+        select_cols="""
+            s.map AS map,
+            SUM(s.kills) AS kills,
+            SUM(s.deaths) AS deaths,
+            SUM(s.fired) AS fired,
+            SUM(s.hits) AS hits,
+            SUM(s.rounds_played) AS rounds_played
+        """,
+        group_by="s.map",
+        order_by="fired DESC",
+        server_ident=server_ident,
+        limit=limit,
+    )
 
 
 @app.get("/api/stats/modes")
 def api_stats_modes(server_ident: Optional[str] = None, limit: int = 200):
     limit = max(1, min(int(limit or 200), 1000))
-    con = _db_con()
+    return _stats_query(
+        select_cols="""
+            s.game_mode AS game_mode,
+            SUM(s.kills) AS kills,
+            SUM(s.deaths) AS deaths,
+            SUM(s.fired) AS fired,
+            SUM(s.hits) AS hits,
+            SUM(s.rounds_played) AS rounds_played
+        """,
+        group_by="s.game_mode",
+        order_by="fired DESC",
+        server_ident=server_ident,
+        limit=limit,
+    )
+
+
+@app.get("/api/stats/player_nicks")
+def api_stats_player_nicks(ubi: str = "", server_ident: str = ""):
+    """
+    Return all known nicknames for a player (by ubi name).
+    Resolves aliases so merged players show all nicks from all linked accounts.
+    """
+    if not ubi:
+        return {"ok": False, "error": "ubi parameter required"}
+
     try:
-        where = ""
-        args: List[object] = []
-        if server_ident:
-            where = "WHERE p.server_ident = ?"
-            args.append(server_ident)
+        with _db_ctx() as con:
+            where_si = "AND server_ident = ?" if server_ident else ""
+            args: List[object] = [ubi]
+            if server_ident:
+                args.append(server_ident)
 
-        rows = con.execute(
-            f"""
-            SELECT
-              s.game_mode AS game_mode,
-              SUM(s.kills) AS kills,
-              SUM(s.deaths) AS deaths,
-              SUM(s.fired) AS fired,
-              SUM(s.hits) AS hits,
-              SUM(s.rounds_played) AS rounds_played
-            FROM player_map_stats s
-            JOIN players p ON p.id = s.player_id
-            {where}
-            GROUP BY s.game_mode
-            ORDER BY fired DESC
-            LIMIT ?
-            """,
-            [*args, limit],
-        ).fetchall()
+            row = con.execute(
+                f"SELECT id FROM players WHERE ubi = ? {where_si} LIMIT 1",
+                args,
+            ).fetchone()
 
-        return {"ok": True, "rows": [dict(r) for r in rows]}
-    finally:
-        con.close()
+            if not row:
+                return {"ok": True, "ubi": ubi, "nicks": [], "aliases": []}
+
+            player_id = int(row[0])
+
+            canon_row = con.execute(
+                "SELECT canonical_player_id FROM player_aliases WHERE alias_player_id = ?",
+                (player_id,),
+            ).fetchone()
+            canonical_id = int(canon_row[0]) if canon_row else player_id
+
+            alias_rows = con.execute(
+                "SELECT alias_player_id FROM player_aliases WHERE canonical_player_id = ?",
+                (canonical_id,),
+            ).fetchall()
+            all_ids = [canonical_id] + [int(r[0]) for r in alias_rows]
+
+            placeholders = ",".join("?" * len(all_ids))
+            nick_rows = con.execute(
+                f"""
+                SELECT DISTINCT pn.nick
+                FROM player_nicks pn
+                WHERE pn.player_id IN ({placeholders})
+                ORDER BY pn.nick
+                """,
+                all_ids,
+            ).fetchall()
+            nicks = [r[0] for r in nick_rows]
+
+            alias_ubi_rows = con.execute(
+                f"""
+                SELECT DISTINCT p.ubi
+                FROM players p
+                WHERE p.id IN ({placeholders}) AND p.ubi != ?
+                ORDER BY p.ubi
+                """,
+                all_ids + [ubi],
+            ).fetchall()
+            aliases = [r[0] for r in alias_ubi_rows]
+
+            return {"ok": True, "ubi": ubi, "nicks": nicks, "aliases": aliases}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+@app.get("/api/stats/player_detail")
+def api_stats_player_detail(ubi: str = "", server_ident: str = ""):
+    """
+    Full detail for a single player: totals, per-map breakdown, per-mode breakdown,
+    nicks, and aliases. Resolves through alias merges.
+    """
+    if not ubi:
+        return {"ok": False, "error": "ubi parameter required"}
+
+    if ubi.upper().startswith("JOHNDOE"):
+        return {"ok": True, "ubi": ubi, "found": False}
+
+    try:
+        with _db_ctx() as con:
+            where_si = "AND server_ident = ?" if server_ident else ""
+            args: List[object] = [ubi]
+            if server_ident:
+                args.append(server_ident)
+
+            row = con.execute(
+                f"SELECT id FROM players WHERE ubi = ? {where_si} LIMIT 1",
+                args,
+            ).fetchone()
+
+            if not row:
+                return {"ok": True, "ubi": ubi, "found": False}
+
+            player_id = int(row[0])
+
+            canon_row = con.execute(
+                "SELECT canonical_player_id FROM player_aliases WHERE alias_player_id = ?",
+                (player_id,),
+            ).fetchone()
+            canonical_id = int(canon_row[0]) if canon_row else player_id
+
+            canon_ubi_row = con.execute(
+                "SELECT ubi, server_ident FROM players WHERE id = ?",
+                (canonical_id,),
+            ).fetchone()
+            canonical_ubi = canon_ubi_row[0] if canon_ubi_row else ubi
+            canonical_si = canon_ubi_row[1] if canon_ubi_row else server_ident
+
+            alias_rows = con.execute(
+                "SELECT alias_player_id FROM player_aliases WHERE canonical_player_id = ?",
+                (canonical_id,),
+            ).fetchall()
+            all_ids = [canonical_id] + [int(r[0]) for r in alias_rows]
+            placeholders = ",".join("?" * len(all_ids))
+
+            # Totals
+            totals_row = con.execute(
+                f"""
+                SELECT
+                    SUM(s.kills) AS kills,
+                    SUM(s.deaths) AS deaths,
+                    SUM(s.fired) AS fired,
+                    SUM(s.hits) AS hits,
+                    SUM(s.rounds_played) AS rounds_played
+                FROM player_map_stats s
+                WHERE s.player_id IN ({placeholders})
+                """,
+                all_ids,
+            ).fetchone()
+
+            kills = int(totals_row[0] or 0)
+            deaths = int(totals_row[1] or 0)
+            fired = int(totals_row[2] or 0)
+            hits = int(totals_row[3] or 0)
+            rounds_played = int(totals_row[4] or 0)
+
+            # Compute score
+            ratio = kills / max(deaths, 1)
+            acc = hits / max(fired, 1)
+            rounds_adds = rounds_played / 500.0
+
+            if rounds_played < 10:
+                pen = 0.1
+            elif rounds_played < 20:
+                pen = 0.2
+            elif rounds_played < 30:
+                pen = 0.4
+            elif rounds_played < 50:
+                pen = 0.6
+            elif rounds_played < 100:
+                pen = 0.8
+            else:
+                pen = 1.0
+
+            score = int((
+                (ratio * 1000 * rounds_adds)
+                + (acc * 50 * rounds_adds)
+                + (ratio * 1000)
+                + (acc * 40)
+                + rounds_played
+            ) * pen)
+
+            totals = {
+                "kills": kills,
+                "deaths": deaths,
+                "fired": fired,
+                "hits": hits,
+                "rounds_played": rounds_played,
+                "score": score,
+                "kd_ratio": round(ratio, 2),
+                "accuracy": round(acc * 100, 1),
+            }
+
+            # Per-map breakdown
+            map_rows = con.execute(
+                f"""
+                SELECT
+                    s.map AS map,
+                    SUM(s.kills) AS kills,
+                    SUM(s.deaths) AS deaths,
+                    SUM(s.fired) AS fired,
+                    SUM(s.hits) AS hits,
+                    SUM(s.rounds_played) AS rounds_played
+                FROM player_map_stats s
+                WHERE s.player_id IN ({placeholders})
+                GROUP BY s.map
+                ORDER BY SUM(s.kills) DESC
+                """,
+                all_ids,
+            ).fetchall()
+            by_map = [dict(r) for r in map_rows]
+
+            # Per-mode breakdown
+            mode_rows = con.execute(
+                f"""
+                SELECT
+                    s.game_mode AS game_mode,
+                    SUM(s.kills) AS kills,
+                    SUM(s.deaths) AS deaths,
+                    SUM(s.fired) AS fired,
+                    SUM(s.hits) AS hits,
+                    SUM(s.rounds_played) AS rounds_played
+                FROM player_map_stats s
+                WHERE s.player_id IN ({placeholders})
+                GROUP BY s.game_mode
+                ORDER BY SUM(s.kills) DESC
+                """,
+                all_ids,
+            ).fetchall()
+            by_mode = [dict(r) for r in mode_rows]
+
+            # Nicks
+            nick_rows = con.execute(
+                f"""
+                SELECT DISTINCT pn.nick
+                FROM player_nicks pn
+                WHERE pn.player_id IN ({placeholders})
+                ORDER BY pn.nick
+                """,
+                all_ids,
+            ).fetchall()
+            nicks = [r[0] for r in nick_rows]
+
+            # Alias ubis
+            alias_ubi_rows = con.execute(
+                f"""
+                SELECT DISTINCT p.ubi
+                FROM players p
+                WHERE p.id IN ({placeholders}) AND p.ubi != ?
+                ORDER BY p.ubi
+                """,
+                all_ids + [canonical_ubi],
+            ).fetchall()
+            aliases = [r[0] for r in alias_ubi_rows]
+
+            return {
+                "ok": True,
+                "found": True,
+                "ubi": canonical_ubi,
+                "server_ident": canonical_si,
+                "totals": totals,
+                "by_map": by_map,
+                "by_mode": by_mode,
+                "nicks": nicks,
+                "aliases": aliases,
+            }
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+@app.get("/api/stats/last_rounds")
+def api_stats_last_rounds(server_ident: str = "", limit: int = 5):
+    """
+    Return the last N rounds (with players) for a given server,
+    with per-player stats extracted from the raw ingest JSON.
+    """
+    if not server_ident:
+        return {"ok": False, "error": "server_ident required"}
+
+    if limit < 1:
+        limit = 1
+    if limit > 20:
+        limit = 20
+
+    try:
+        with _db_ctx() as con:
+            rounds = []
+            offset = 0
+            batch_size = 10
+
+            while len(rounds) < limit and offset < 100:
+                rows = con.execute(
+                    """
+                    SELECT id, ts, server_ident, game_mode, map, raw_json
+                    FROM ingest_events
+                    WHERE server_ident = ?
+                    ORDER BY id DESC
+                    LIMIT ? OFFSET ?
+                    """,
+                    (server_ident, batch_size, offset),
+                ).fetchall()
+
+                if not rows:
+                    break
+
+                offset += len(rows)
+
+                for r in rows:
+                    raw = r["raw_json"]
+                    if isinstance(raw, str):
+                        try:
+                            raw = json.loads(raw)
+                        except Exception:
+                            raw = {}
+                    elif not isinstance(raw, dict):
+                        raw = {}
+
+                    norm = raw.get("normalized") or {}
+                    srv = norm.get("server") or {}
+                    players_raw = norm.get("players") or []
+
+                    rt = srv.get("rt")
+                    if rt is not None:
+                        try:
+                            rt = float(rt)
+                        except Exception:
+                            rt = None
+
+                    players = []
+                    for p in players_raw:
+                        if not isinstance(p, dict):
+                            continue
+                        name = p.get("name", "")
+                        ubi = p.get("ubi", "")
+                        if not name and not ubi:
+                            continue
+                        players.append({
+                            "name": name,
+                            "ubi": ubi,
+                            "kills": p.get("kills"),
+                            "deaths": p.get("deaths"),
+                            "hits": p.get("hits"),
+                            "fired": p.get("fired"),
+                        })
+
+                    # Skip rounds with no players
+                    if not players:
+                        continue
+
+                    rounds.append({
+                        "event_id": r["id"],
+                        "ts": r["ts"],
+                        "map": r["map"],
+                        "game_mode": r["game_mode"],
+                        "round_time": rt,
+                        "players": players,
+                    })
+
+                    # Stop once we have enough
+                    if len(rounds) >= limit:
+                        break
+
+            return {"ok": True, "rounds": rounds}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
 
 
 ##########################################
@@ -789,6 +827,39 @@ def api_admin_available_maps():
 # Admin commands (whitelist)
 ##########################################
 
+class MaxPlayersBody(BaseModel):
+    max_players: int = Field(..., description="Max players (1..16)")
+
+class LockServerBody(BaseModel):
+    password: str = Field("", description="Game password (empty to disable)")
+
+class SaveINIBody(BaseModel):
+    inifile: str = Field(..., description="INI base name (no.ini)")
+
+class ChangeMapBody(BaseModel):
+    index: int = Field(..., description="Map rotation index (1-based)")
+
+class AddMapBody(BaseModel):
+    map_name: str = Field(..., description="Map name")
+    game_type: str = Field(..., description="Game type identifier")
+    position: int = Field(..., description="Position in rotation (1-based)")
+
+class RemoveMapBody(BaseModel):
+    index: int = Field(..., description="Map rotation index to remove (1-based)")
+
+class MessTextBody(BaseModel):
+    slot: int = Field(..., description="Messenger line (0, 1, or 2)")
+    text: str = Field(..., description="Messenger text (<= 100 chars)")
+
+class BanUbiBody(BaseModel):
+    ubi: str = Field(..., description="UBI name of the player to ban")
+
+class RemoveBanBody(BaseModel):
+    ban_value: str = Field(..., description="Ban entry to remove (GUID or IP)")
+
+class KickUbiBody(BaseModel):
+    ubi: str = Field(..., description="UBI name of the player to kick")
+
 class SetRTBody(BaseModel):
     seconds: int = Field(..., description="Round time seconds (60..3600)")
 
@@ -798,7 +869,7 @@ class SetMOTDBody(BaseModel):
 
 
 class LoadINIBody(BaseModel):
-    inifile: str = Field(..., description="INI base name (no .ini)")
+    inifile: str = Field(..., description="INI base name (no.ini)")
 
 
 class SayBody(BaseModel):
@@ -807,7 +878,6 @@ class SayBody(BaseModel):
 
 class SetDiffLevelBody(BaseModel):
     level: int = Field(..., description="Difficulty level (1..3)")
-
 
 def _admin_send(payload: bytes, note: str = ""):
     meta = udp_send_admin_command(DEFAULT_SERVER_IP, DEFAULT_SERVER_PORT, payload, timeout_s=1.2)
@@ -820,6 +890,155 @@ def _admin_send(payload: bytes, note: str = ""):
         }
     )
 
+@app.post("/api/admin/restart_match")
+def api_admin_restart_match():
+    try:
+        payload = cmd_restart_match()
+        return _admin_send(payload, note="Restart match command sent.")
+    except Exception:
+        logger.exception("Error in /api/admin/restart_match")
+        return JSONResponse({"ok": False, "error": "Internal error"}, status_code=400)
+
+
+@app.post("/api/admin/restart_round")
+def api_admin_restart_round():
+    try:
+        payload = cmd_restart_round()
+        return _admin_send(payload, note="Restart round command sent.")
+    except Exception:
+        logger.exception("Error in /api/admin/restart_round")
+        return JSONResponse({"ok": False, "error": "Internal error"}, status_code=400)
+
+
+@app.post("/api/admin/lock_server")
+def api_admin_lock_server(body: LockServerBody):
+    try:
+        payload = cmd_lock_server(body.password)
+        note = "Game password enabled." if body.password else "Game password disabled."
+        return _admin_send(payload, note=note)
+    except Exception:
+        logger.exception("Error in /api/admin/lock_server")
+        return JSONResponse({"ok": False, "error": "Internal error"}, status_code=400)
+
+
+@app.post("/api/admin/set_max_players")
+def api_admin_set_max_players(body: MaxPlayersBody):
+    try:
+        payload = cmd_set_max_players(body.max_players)
+        return _admin_send(payload, note=f"Max players set to {body.max_players}.")
+    except Exception:
+        logger.exception("Error in /api/admin/set_max_players")
+        return JSONResponse({"ok": False, "error": "Internal error"}, status_code=400)
+
+
+@app.post("/api/admin/save_ini")
+def api_admin_save_ini(body: SaveINIBody):
+    try:
+        payload = cmd_save_ini(body.inifile)
+        return _admin_send(payload, note=f"Save server config to {body.inifile}.ini sent.")
+    except Exception:
+        logger.exception("Error in /api/admin/save_ini")
+        return JSONResponse({"ok": False, "error": "Internal error"}, status_code=400)
+
+
+@app.post("/api/admin/messenger_toggle")
+def api_admin_messenger_toggle():
+    try:
+        payload = cmd_messenger_toggle()
+        return _admin_send(payload, note="Messenger toggled.")
+    except Exception:
+        logger.exception("Error in /api/admin/messenger_toggle")
+        return JSONResponse({"ok": False, "error": "Internal error"}, status_code=400)
+
+
+@app.post("/api/admin/change_map")
+def api_admin_change_map(body: ChangeMapBody):
+    try:
+        payload = cmd_change_map(body.index)
+        return _admin_send(payload, note=f"Change to map #{body.index} sent.")
+    except Exception:
+        logger.exception("Error in /api/admin/change_map")
+        return JSONResponse({"ok": False, "error": "Internal error"}, status_code=400)
+
+
+@app.post("/api/admin/add_map")
+def api_admin_add_map(body: AddMapBody):
+    try:
+        payload = cmd_add_map(body.map_name, body.game_type, body.position)
+        return _admin_send(payload, note=f"Add map {body.map_name} at position {body.position} sent.")
+    except Exception:
+        logger.exception("Error in /api/admin/add_map")
+        return JSONResponse({"ok": False, "error": "Internal error"}, status_code=400)
+
+
+@app.post("/api/admin/remove_map")
+def api_admin_remove_map(body: RemoveMapBody):
+    try:
+        payload = cmd_remove_map(body.index)
+        return _admin_send(payload, note=f"Remove map #{body.index} sent.")
+    except Exception:
+        logger.exception("Error in /api/admin/remove_map")
+        return JSONResponse({"ok": False, "error": "Internal error"}, status_code=400)
+
+@app.post("/api/admin/messtext")
+def api_admin_messtext(body: MessTextBody):
+    try:
+        payload = cmd_messtext(body.slot, body.text)
+        return _admin_send(payload, note=f"Messenger text {body.slot} set.")
+    except Exception:
+        logger.exception("Error in /api/admin/messtext")
+        return JSONResponse({"ok": False, "error": "Internal error"}, status_code=400)
+
+@app.post("/api/admin/ban")
+def api_admin_ban(body: BanUbiBody):
+    try:
+        payload = cmd_ban_ubi(body.ubi)
+        return _admin_send(payload, note="Ban command sent.")
+    except Exception:
+        logger.exception("Error in /api/admin/ban")
+        return JSONResponse({"ok": False, "error": "Internal error"}, status_code=400)
+
+@app.get("/api/admin/banlist")
+def api_admin_banlist():
+    try:
+        datagrams, meta = udp_query_banlist(DEFAULT_SERVER_IP, DEFAULT_SERVER_PORT)
+        parsed = parse_banlist_from_datagrams(datagrams)
+
+        return JSONResponse(
+            {
+                "ok": True,
+                "meta": meta,
+                "banlist": parsed,
+            }
+        )
+    except Exception:
+        logging.exception("Error while retrieving ban list from default game server")
+        return JSONResponse(
+            {
+                "ok": False,
+                "error": "Internal server error while retrieving ban list.",
+                "target": {"ip": DEFAULT_SERVER_IP, "port": DEFAULT_SERVER_PORT},
+            },
+            status_code=400,
+        )
+
+@app.post("/api/admin/remove_ban")
+def api_admin_remove_ban(body: RemoveBanBody):
+    try:
+        payload = cmd_remove_ban(body.ban_value)
+        return _admin_send(payload, note="Remove ban command sent.")
+    except Exception:
+        logger.exception("Error in /api/admin/remove_ban")
+        return JSONResponse({"ok": False, "error": "Internal error"}, status_code=400)
+
+@app.post("/api/admin/kick")
+def api_admin_kick(body: KickUbiBody):
+    try:
+        payload = cmd_kick_ubi(body.ubi)
+        return _admin_send(payload, note="Kick command sent.")
+    except Exception:
+        logger.exception("Error in /api/admin/kick")
+        return JSONResponse({"ok": False, "error": "Internal error"}, status_code=400)
 
 @app.post("/api/admin/set_rt")
 def api_admin_set_rt(body: SetRTBody):
@@ -879,3 +1098,80 @@ def api_admin_set_diff_level(body: SetDiffLevelBody):
     except Exception:
         logger.exception("Error in /api/admin/set_diff_level")
         return JSONResponse({"ok": False, "error": "Internal error"}, status_code=400)
+
+
+##########################################
+# Alias / merge management endpoints
+##########################################
+
+@app.get("/api/admin/merge_candidates")
+def api_merge_candidates():
+    """Detect players that look like fragmented guest ubis."""
+    try:
+        with _db_ctx() as con:
+            candidates = db_detect_merge_candidates(con)
+            return {"ok": True, "candidates": candidates}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+@app.post("/api/admin/merge_apply")
+async def api_merge_apply(request: Request):
+    """
+    Apply a merge: set canonical_player_id for a list of alias_player_ids.
+
+    Body:
+    {
+      "canonical_player_id": 4,
+      "alias_player_ids": [20, 21, 22,...]
+    }
+    """
+    try:
+        body = await request.json()
+        canonical_id = int(body["canonical_player_id"])
+        alias_ids = body.get("alias_player_ids", [])
+
+        with _db_ctx() as con:
+            created = 0
+            for aid in alias_ids:
+                if db_add_player_alias(con, canonical_id, int(aid)):
+                    created += 1
+            con.commit()
+
+        return {"ok": True, "created": created, "canonical_player_id": canonical_id}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+@app.get("/api/admin/aliases")
+def api_aliases():
+    """List all current alias mappings."""
+    try:
+        with _db_ctx() as con:
+            aliases = db_get_all_aliases(con)
+            return {"ok": True, "aliases": aliases}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+@app.post("/api/admin/merge_remove")
+async def api_merge_remove(request: Request):
+    """
+    Remove an alias mapping.
+
+    Body:
+    {
+      "alias_player_id": 20
+    }
+    """
+    try:
+        body = await request.json()
+        alias_id = int(body["alias_player_id"])
+
+        with _db_ctx() as con:
+            removed = db_remove_alias(con, alias_id)
+            con.commit()
+
+        return {"ok": True, "removed": removed}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}

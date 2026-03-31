@@ -1,41 +1,19 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <!--
-  ==============================================================================
-  File: app/web/index.html
-  Project: RVSDash - Raven Shield Dashboard (Status and Admin)
-  Author: Eric Reinsmidt
-
-  What this file does:
-  - Defines the landing page served at GET /.
-  - Provides links to:
-    - /status (status dashboard)
-    - /admin  (admin dashboard)
-  - Displays the default target (injected by backend using __DEFAULT_TARGET__).
-
-  How it works:
-  - The FastAPI backend reads this file from disk and returns it as HTML.
-  - The placeholder __DEFAULT_TARGET__ is replaced by app/main.py.
-  - Styling is provided by /web/css/landing.css.
-  - Any interactive enhancements (if present) live in /web/js/landing.js.
-  ==============================================================================
-  -->
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Raven Shield Dashboard</title>
-
-  <!-- Landing page stylesheet -->
-  <link rel="stylesheet" href="/web/css/landing.css?v=2">
+  <title>__SITE_TITLE__ Dashboard</title>
+  <link rel="stylesheet" href="/web/css/common.css?v=__CACHE_BUST__">
+  <link rel="stylesheet" href="/web/css/landing.css?v=__CACHE_BUST__">
 </head>
 <body>
   <div class="wrap">
-      <div class="top">
-        <h1>Raven Shield Dashboard</h1>
-        <div class="pill">Default target: __DEFAULT_TARGET__</div>
-      </div>
+    <div class="top">
+      <h1>__SITE_HEADING__ Dashboard</h1>
+      <div class="pill">Default target: __DEFAULT_TARGET__</div>
+    </div>
 
-    <!-- Two main navigation cards -->
     <div class="cards">
       <div class="card">
         <h2>Status</h2>
@@ -44,9 +22,9 @@
       </div>
 
       <div class="card">
-          <h2>Statistics</h2>
-          <div class="small">View server and player statistics</div>
-          <a class="btn" href="/stats">View stats</a>
+        <h2>Statistics</h2>
+        <div class="small">View server and player statistics</div>
+        <a class="btn" href="/stats">View stats</a>
       </div>
 
       <div class="card">
@@ -54,16 +32,12 @@
         <div class="small">Send allowlisted admin commands<p style="color: red;">(protect this endpoint)</p></div>
         <a class="btn" href="/admin">View admin</a>
       </div>
-
     </div>
   </div>
 
-  <!-- Sticky footer (pinned via CSS flex layout) -->
-  <footer class="siteFooter">
-    Uses N4Admin &amp; URLPost &copy; 2004 Neil Popplewell &amp; N4IDMod &copy; 2020 &commat;Dateranoth
-  </footer>
+  __FOOTER__
 
-  <!-- Optional landing page JS -->
-  <script src="/web/js/landing.js"></script>
+  <script src="/web/js/common.js?v=__CACHE_BUST__"></script>
+  <script src="/web/js/landing.js?v=__CACHE_BUST__"></script>
 </body>
 </html>

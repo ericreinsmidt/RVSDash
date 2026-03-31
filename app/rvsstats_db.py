@@ -1,4 +1,3 @@
-# rvsstats_db.py
 """
 SQLite persistence for RVSDash ingest stats.
 
@@ -14,7 +13,7 @@ from __future__ import annotations
 
 import sqlite3
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 
 def db_init(db_path: Path) -> None:
@@ -26,7 +25,7 @@ def db_init(db_path: Path) -> None:
         con.execute("PRAGMA foreign_keys=ON;")
 
         ###################################
-        #       TEMPORARY
+        #       TEMP
         ###################################
 
         # Idempotent import support:
@@ -42,7 +41,7 @@ def db_init(db_path: Path) -> None:
         )
 
         ###################################
-        #       TEMPORARY
+        #       TEMP
         ###################################
 
         con.execute(
@@ -105,6 +104,23 @@ def db_init(db_path: Path) -> None:
         con.execute("CREATE INDEX IF NOT EXISTS idx_pms_kills ON player_map_stats(kills);")
         con.execute("CREATE INDEX IF NOT EXISTS idx_pms_player ON player_map_stats(player_id);")
 
+        # ------------------------------------------------------------------
+        # Player alias / merge table
+        # ------------------------------------------------------------------
+        con.execute(
+            """
+            CREATE TABLE IF NOT EXISTS player_aliases (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              canonical_player_id INTEGER NOT NULL,
+              alias_player_id INTEGER NOT NULL UNIQUE,
+              created_ts TEXT NOT NULL,
+              FOREIGN KEY(canonical_player_id) REFERENCES players(id) ON DELETE CASCADE,
+              FOREIGN KEY(alias_player_id) REFERENCES players(id) ON DELETE CASCADE
+            );
+            """
+        )
+        con.execute("CREATE INDEX IF NOT EXISTS idx_pa_canonical ON player_aliases(canonical_player_id);")
+
         con.commit()
     finally:
         con.close()
@@ -117,7 +133,6 @@ def db_insert_ingest_event(con: sqlite3.Connection, event: Dict[str, Any]) -> in
     server_ident = str(event.get("server_ident", "") or "")
     game_mode = str(event.get("game_mode", "") or "")
     map_name = str(event.get("map", "") or "")
-    # raw_json = json.dumps(event, ensure_ascii=False)
     # Prefer storing the full original record if provided.
     raw_json = json.dumps(event.get("raw_json", event), ensure_ascii=False)
 
@@ -209,7 +224,7 @@ def db_upsert_player_map_stats(
         (int(player_id), game_mode, map_name, 0, 0, 0, 0, 0, event_id),
     )
 
-    # Then increment totals
+    # Then increment totals (matches the PHP UPDATE accumulation pattern)
     con.execute(
         """
         UPDATE player_map_stats
@@ -234,3 +249,285 @@ def db_upsert_player_map_stats(
             map_name,
         ),
     )
+
+
+# ------------------------------------------------------------------------------
+# Player alias / merge helpers
+# ------------------------------------------------------------------------------
+
+# Ubi names that should never be auto-merged (default/generic names).
+_GENERIC_UBI_NAMES = {"JOHNDOE"}
+
+
+def db_resolve_canonical_player_id(con: sqlite3.Connection, player_id: int) -> int:
+    """
+    Given a player_id, return its canonical player_id.
+
+    If the player has an alias entry, return the canonical.
+    Otherwise return the player_id itself (it is its own canonical).
+    """
+    cur = con.execute(
+        "SELECT canonical_player_id FROM player_aliases WHERE alias_player_id=?",
+        (int(player_id),),
+    )
+    row = cur.fetchone()
+    if row:
+        return int(row[0])
+    return int(player_id)
+
+
+def db_add_player_alias(
+    con: sqlite3.Connection,
+    canonical_player_id: int,
+    alias_player_id: int,
+) -> bool:
+    """
+    Record that alias_player_id is an alias of canonical_player_id.
+
+    Returns True if newly inserted, False if already existed.
+
+    Safety:
+    - Cannot alias a player to itself.
+    - Cannot alias a player that is already a canonical for other aliases
+      (would create chains). Caller should resolve first.
+    """
+    from datetime import datetime, timezone
+
+    canonical_player_id = int(canonical_player_id)
+    alias_player_id = int(alias_player_id)
+
+    if canonical_player_id == alias_player_id:
+        return False
+
+    ts = datetime.now(timezone.utc).isoformat()
+
+    cur = con.execute(
+        "INSERT OR IGNORE INTO player_aliases(canonical_player_id, alias_player_id, created_ts) VALUES(?,?,?)",
+        (canonical_player_id, alias_player_id, ts),
+    )
+    return (cur.rowcount or 0) == 1
+
+
+def db_get_aliases_for_canonical(con: sqlite3.Connection, canonical_player_id: int) -> List[int]:
+    """Return all alias player_ids that point to this canonical."""
+    rows = con.execute(
+        "SELECT alias_player_id FROM player_aliases WHERE canonical_player_id=?",
+        (int(canonical_player_id),),
+    ).fetchall()
+    return [int(r[0]) for r in rows]
+
+
+def db_get_all_aliases(con: sqlite3.Connection) -> List[Dict[str, Any]]:
+    """Return all alias mappings with ubi names for display."""
+    rows = con.execute(
+        """
+        SELECT
+          pa.id,
+          pa.canonical_player_id,
+          cp.ubi AS canonical_ubi,
+          cp.server_ident,
+          pa.alias_player_id,
+          ap.ubi AS alias_ubi,
+          pa.created_ts
+        FROM player_aliases pa
+        JOIN players cp ON cp.id = pa.canonical_player_id
+        JOIN players ap ON ap.id = pa.alias_player_id
+        ORDER BY cp.ubi, ap.ubi
+        """,
+    ).fetchall()
+    return [
+        {
+            "id": r[0],
+            "canonical_player_id": r[1],
+            "canonical_ubi": r[2],
+            "server_ident": r[3],
+            "alias_player_id": r[4],
+            "alias_ubi": r[5],
+            "created_ts": r[6],
+        }
+        for r in rows
+    ]
+
+
+def db_remove_alias(con: sqlite3.Connection, alias_player_id: int) -> bool:
+    """Remove an alias mapping. Returns True if a row was deleted."""
+    cur = con.execute(
+        "DELETE FROM player_aliases WHERE alias_player_id=?",
+        (int(alias_player_id),),
+    )
+    return (cur.rowcount or 0) > 0
+
+
+def db_detect_merge_candidates(con: sqlite3.Connection) -> List[Dict[str, Any]]:
+    """
+    Scan for players whose ubi matches the BaseName_XXXXXXXX pattern
+    (8-char alphanumeric suffix after underscore) and group them by base name.
+
+    Excludes:
+    - Generic names (JOHNDOE)
+    - Players already aliased
+    - Groups with only one member (nothing to merge)
+
+    Returns a list of candidate groups:
+    [
+      {
+        "base_name": "Miyagi_OR6",
+        "server_ident": "obsolete_superstars",
+        "canonical": {"player_id": 4, "ubi": "Miyagi_OR6", "rounds": 4},
+        "aliases": [
+          {"player_id": 20, "ubi": "Miyagi_OR6_t80780aj", "rounds": 1},...
+        ]
+      },...
+    ]
+    """
+    import re
+
+    # Pattern: base name, underscore, exactly 8 alphanumeric chars at end
+    suffix_re = re.compile(r"^(.+)_([A-Za-z0-9]{8})$")
+
+    # Get all players not already aliased
+    rows = con.execute(
+        """
+        SELECT p.id, p.server_ident, p.ubi,
+               COALESCE(SUM(s.rounds_played), 0) AS total_rounds
+        FROM players p
+        LEFT JOIN player_map_stats s ON s.player_id = p.id
+        WHERE p.id NOT IN (SELECT alias_player_id FROM player_aliases)
+        GROUP BY p.id
+        ORDER BY p.server_ident, p.ubi
+        """,
+    ).fetchall()
+
+    # Group by (server_ident, base_name)
+    groups: Dict[tuple, List[Dict[str, Any]]] = {}
+
+    for r in rows:
+        player_id, server_ident, ubi, total_rounds = r[0], r[1], r[2], r[3]
+
+        m = suffix_re.match(ubi)
+        if m:
+            base_name = m.group(1)
+        else:
+            base_name = ubi
+
+        # Skip generic names
+        if base_name in _GENERIC_UBI_NAMES:
+            continue
+
+        key = (server_ident, base_name)
+        if key not in groups:
+            groups[key] = []
+        groups[key].append({
+            "player_id": player_id,
+            "ubi": ubi,
+            "rounds": total_rounds,
+            "is_base": (ubi == base_name),
+        })
+
+    # Build candidate list — only groups with more than one member
+    candidates = []
+    for (server_ident, base_name), members in sorted(groups.items()):
+        if len(members) < 2:
+            continue
+
+        # Pick canonical: prefer the "base" ubi (no suffix), then most rounds
+        base_members = [m for m in members if m["is_base"]]
+        if base_members:
+            canonical = base_members[0]
+        else:
+            canonical = max(members, key=lambda m: m["rounds"])
+
+        aliases = [m for m in members if m["player_id"] != canonical["player_id"]]
+
+        candidates.append({
+            "base_name": base_name,
+            "server_ident": server_ident,
+            "canonical": {
+                "player_id": canonical["player_id"],
+                "ubi": canonical["ubi"],
+                "rounds": canonical["rounds"],
+            },
+            "aliases": [
+                {
+                    "player_id": a["player_id"],
+                    "ubi": a["ubi"],
+                    "rounds": a["rounds"],
+                }
+                for a in sorted(aliases, key=lambda x: x["ubi"])
+            ],
+        })
+
+    return candidates
+
+
+def db_auto_resolve_ubi(con: sqlite3.Connection, server_ident: str, ubi: str) -> Optional[int]:
+    """
+    At ingest time, check if a ubi matches the BaseName_XXXXXXXX pattern
+    and a canonical player with BaseName already exists on this server.
+
+    If so, return the canonical player_id (and create the alias mapping).
+    If not, return None (caller proceeds with normal get_or_create).
+
+    Excludes generic names (JOHNDOE).
+    """
+    import re
+    from datetime import datetime, timezone
+
+    suffix_re = re.compile(r"^(.+)_([A-Za-z0-9]{8})$")
+
+    ubi = (ubi or "").strip()
+    server_ident = (server_ident or "").strip()
+
+    if not ubi or not server_ident:
+        return None
+
+    m = suffix_re.match(ubi)
+    if not m:
+        return None
+
+    base_name = m.group(1)
+
+    # Skip generic names
+    if base_name in _GENERIC_UBI_NAMES:
+        return None
+
+    # Check if a canonical player with the base name exists
+    cur = con.execute(
+        "SELECT id FROM players WHERE server_ident=? AND ubi=?",
+        (server_ident, base_name),
+    )
+    row = cur.fetchone()
+    if not row:
+        return None
+
+    canonical_player_id = int(row[0])
+
+    # Make sure the canonical isn't itself an alias
+    cur2 = con.execute(
+        "SELECT canonical_player_id FROM player_aliases WHERE alias_player_id=?",
+        (canonical_player_id,),
+    )
+    row2 = cur2.fetchone()
+    if row2:
+        canonical_player_id = int(row2[0])
+
+    # Now get or create the suffixed player row
+    alias_player_id = db_get_or_create_player(con, server_ident, ubi)
+
+    # If they're the same (shouldn't happen, but defensive), skip
+    if alias_player_id == canonical_player_id:
+        return canonical_player_id
+
+    # Check if already aliased
+    cur3 = con.execute(
+        "SELECT id FROM player_aliases WHERE alias_player_id=?",
+        (alias_player_id,),
+    )
+    if not cur3.fetchone():
+        ts = datetime.now(timezone.utc).isoformat()
+        con.execute(
+            "INSERT OR IGNORE INTO player_aliases(canonical_player_id, alias_player_id, created_ts) VALUES(?,?,?)",
+            (canonical_player_id, alias_player_id, ts),
+        )
+
+    return canonical_player_id

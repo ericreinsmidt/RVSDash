@@ -1,27 +1,18 @@
-<!-- stats.html -->
 <!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Raven Shield Stats</title>
-    <link rel="stylesheet" href="/web/css/stats.css?v=4" />
-    <script defer src="/web/js/stats.js?v=20260326-6"></script>
+    <title>__SITE_TITLE__ Stats</title><link rel="stylesheet" href="/web/css/common.css?v=__CACHE_BUST__">
+    <link rel="stylesheet" href="/web/css/stats.css?v=__CACHE_BUST__" />
   </head>
   <body>
     <div class="wrap">
       <div class="top">
         <div>
-          <h1>Raven Shield Stats</h1>
-          <div class="nav">
-            Pages:
-            <a href="/">/main</a>
-            <a href="/status">/status</a>
-            <a href="/stats">/statistics</a>
-            <a href="/admin">/administration</a>
-          </div>
+          <h1>__SITE_HEADING__ Statistics</h1>
+          <div class="nav">__NAV__</div>
         </div>
-
         <div class="pill">Target: __DEFAULT_TARGET__</div>
       </div>
 
@@ -36,7 +27,6 @@
           </div>
         </div>
       </div>
-
 
       <div class="grid">
         <div class="card intro">
@@ -79,20 +69,23 @@
         </div>
 
         <div class="card">
-          <h2>Totals per player</h2>
-          <div id="playersTotalsWrap" class="small">—</div>
+          <details open>
+            <summary><h2 style="display:inline;">Totals per player</h2></summary>
+            <div id="playersTotalsWrap" class="small">—</div>
+          </details>
         </div>
 
         <div class="card">
-          <h2>Stats per map</h2>
-          <div id="mapsWrap" class="small">—</div>
+          <details open>
+            <summary><h2 style="display:inline;">Stats per map</h2></summary>
+            <div id="mapsWrap" class="small">—</div>
+          </details>
         </div>
 
         <div class="card">
-          <h2>Stats per game mode</h2>
-          <div id="modesWrap" class="small">—</div>
+            <h2>Stats per game mode</h2>
+            <div id="modesWrap" class="small">—</div>
         </div>
-
 
         <div hidden class="card raw">
           <h2>Raw payload</h2>
@@ -104,8 +97,9 @@
       </div>
     </div>
 
-    <footer class="siteFooter">
-      Uses N4Admin &amp; URLPost &copy; 2004 Neil Popplewell &amp; N4IDMod &copy; 2020 &commat;Dateranoth
-    </footer>
+    __FOOTER__
+
+    <script src="/web/js/common.js?v=__CACHE_BUST__"></script>
+    <script defer src="/web/js/stats.js?v=__CACHE_BUST__"></script>
   </body>
 </html>

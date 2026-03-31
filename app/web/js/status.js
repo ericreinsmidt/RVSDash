@@ -8,24 +8,8 @@ Purpose
 - Client-side behavior for /status.
 - Polls GET /api/query and renders:
   - server summary rows
-  - players table (+ loadout overlay)
+  - players table (+ loadout popup)
   - maplist with current-map highlight
-
-Change:
-- Add performant name remapping for weapons + gadgets using O(1) lookup tables.
-- Add fallback “humanizer” so unmapped IDs still display nicely.
-- Apply mappings inside the loadout panel renderer.
-- Can fetch GET /api/admin/available_maps and render the same “Available maps + gametypes”
-  table style used on /admin.
-  - This endpoint performs an AVAILABLEMAPS UDP query; it does not send admin commands.
-- Display both "Messenger" (TA/TB/TC combined) and "MotD" (MM) on the status page.
-- This is purely a presentation change: backend already exposes server.message
-  and server.motd (as requested previously).
-- Display a more friendly "Game Mode" name by mapping known RGM_* tokens to
-  human-friendly strings, similar to weapons/gadgets.
-- Includes fallback humanization so unknown/rare modes still render nicely.
-- Make server card labels more human-friendly (e.g., "server_name" -> "Server Name").
-- Highlight the current map within the maplist (bold + green) so it stands out.
 ==============================================================================
 */
 
@@ -36,6 +20,7 @@ const lastUpdate = document.getElementById('lastUpdate');
 const dot = document.getElementById('dot');
 const refreshBtn = document.getElementById('refreshBtn');
 const rawKv = document.getElementById('rawKv');
+const lastRoundsWrap = document.getElementById('lastRoundsWrap');
 
 /*
   ============================================================================
@@ -43,11 +28,10 @@ const rawKv = document.getElementById('rawKv');
   ============================================================================
 */
 const WEAPON_NAME_MAP = {
-  // Requested test mapping
   "R6Description.R6DescPrimaryWeaponNone": 'Billy Badass (none)',
   BuckShotgunM1: 'M1 Shotgun (shot)',
   BuckShotgunSPAS12: 'SPAS-12 Shotgun (shot)',
-  BuckShotgunUSAS12: 'SPAS-12 Shotgun (shot)',
+  BuckShotgunUSAS12: 'USAS-12 Shotgun (shot)',
   CMagAssaultAK47: 'AK-47 Assault Rifle',
   CMagAssaultAK74: 'AK-74 Assault Rifle',
   CMagAssaultAUG: 'AUG Assault Rifle',
@@ -67,8 +51,8 @@ const WEAPON_NAME_MAP = {
   CMagPistol92FS: '92FS Pistol',
   CMagPistolAPArmy: 'AP Army Pistol',
   CMagPistolCZ61: 'CZ61 Pistol',
-  CMagPistolDesertEagle357: 'Desert Eagle .357 Pistol',
-  CMagPistolDesertEagle50: 'Desert Eagle .50 Pistol',
+  CMagPistolDesertEagle357: 'Desert Eagle.357 Pistol',
+  CMagPistolDesertEagle50: 'Desert Eagle.50 Pistol',
   CMagPistolMac119: 'Mac 119 Pistol',
   CMagPistolMicroUzi: 'Micro Uzi Pistol',
   CMagPistolMk23: 'Mk 23 Pistol',
@@ -112,8 +96,8 @@ const WEAPON_NAME_MAP = {
   NormalPistol92FS: '92FS Pistol',
   NormalPistolAPArmy: 'AP Army Pistol',
   NormalPistolCZ61: 'CZ61 Pistol',
-  NormalPistolDesertEagle357: 'Desert Eagle .357 Pistol',
-  NormalPistolDesertEagle50: 'Desert Eagle .50 Pistol',
+  NormalPistolDesertEagle357: 'Desert Eagle.357 Pistol',
+  NormalPistolDesertEagle50: 'Desert Eagle.50 Pistol',
   NormalPistolMac119: 'Mac 119 Pistol',
   NormalPistolMicroUzi: 'Micro Uzi Pistol',
   NormalPistolMk23: 'Mk 23 Pistol',
@@ -123,7 +107,7 @@ const WEAPON_NAME_MAP = {
   NormalPistolUSP: 'USP Pistol',
   NormalSniperDragunov: 'Dragunov Sniper Rifle',
   NormalSniperM82A1: 'M82A1 Sniper Rifle',
-  NormalSniperPSG1: ' Sniper Rifle',
+  NormalSniperPSG1: ' PSG1 Sniper Rifle',
   NormalSniperSSG3000: 'SSG3000 Sniper Rifle',
   NormalSniperWA2000: 'WA2000 Sniper Rifle',
   NormalSubCZ61: 'CZ61 SMG',
@@ -157,8 +141,8 @@ const WEAPON_NAME_MAP = {
   SilencedAssaultType97: 'Type 97 Rifle',
   SilencedPistol92FS: '92FS Pistol',
   SilencedPistolAPArmy: 'AP Army Pistol',
-  SilencedPistolDesertEagle357: 'Desert Eagle .357 Pistol',
-  SilencedPistolDesertEagle50: 'Desert Eagle .50 Pistol',
+  SilencedPistolDesertEagle357: 'Desert Eagle.357 Pistol',
+  SilencedPistolDesertEagle50: 'Desert Eagle.50 Pistol',
   SilencedPistolMk23: 'Mk 23 Pistol',
   SilencedPistolP228: 'P228 Pistol',
   SilencedPistolSPP: 'SPP Pistol',
@@ -166,7 +150,7 @@ const WEAPON_NAME_MAP = {
   SilencedSniperAWCovert: 'AW Covert Sniper Rifle',
   SilencedSniperDragunov: 'Dragunov Sniper Rifle',
   SilencedSniperM82A1: 'M82A1 Sniper Rifle',
-  SilencedSniperPSG1: ' Sniper Rifle',
+  SilencedSniperPSG1: ' PSG1 Sniper Rifle',
   SilencedSniperSSG3000: 'SSG3000 Sniper Rifle',
   SilencedSniperVSSVintorez: 'VSS Vintorez Sniper Rifle',
   SilencedSniperWA2000: 'WA2000 Sniper Rifle',
@@ -190,7 +174,6 @@ const WEAPON_NAME_MAP = {
 };
 
 const GADGET_NAME_MAP = {
-  // Gadgets (intelligent friendly names)
   R63rdCMAG556mm: '5.56mm Extended Mag',
   R63rdCMAG762mm: '7.62mm Extended Mag',
   R63rdCMAG9mmMP5: '9mm Extended Mag',
@@ -199,45 +182,11 @@ const GADGET_NAME_MAP = {
   R63rdMAG9mmHigh: '9mm Extended Mag',
   R63rdMAGCZ61High: 'CZ61 Extended Mag',
   R63rdMAGPistolHigh: 'Pistol Extended Mag',
-
   R6MiniScopeGadget: 'Mini Scope',
   R6SilencerGadget: 'Suppressor',
   R6ThermalScopeGadget: 'Thermal Scope',
 };
 
-/*
-  Game mode mapping (fast path)
-
-  Why this exists:
-  - Backend returns server.mode from KV "F1".
-  - Servers encode this as an internal token like "RGM_MissionMode".
-  - This table maps expected tokens to human-friendly strings for display.
-*/
-const GAME_MODE_NAME_MAP = {
-  RGM_MissionMode: 'Mission',
-  RGM_HostageRescueCoopMode: 'Hostage Rescue (Co-op)',
-  RGM_TerroristHuntCoopMode: 'Terrorist Hunt (Co-op)',
-  RGM_HostageRescueAdvMode: 'Hostage Rescue (Adversarial)',
-  RGM_DeathmatchMode: 'Deathmatch',
-  RGM_TeamDeathmatchMode: 'Team Deathmatch',
-  RGM_BombAdvMode: 'Bomb (Adversarial)',
-  RGM_EscortAdvMode: 'Escort (Adversarial)',
-  RGM_TerroristHuntAdvMode: 'Terrorist Hunt (Adversarial)',
-  RGM_ScatteredHuntAdvMode: 'Scattered Hunt (Adversarial)',
-  RGM_CaptureTheEnemyAdvMode: 'Capture the Enemy (Adversarial)',
-  RGM_CountDownMode: 'Count Down',
-  RGM_KamikazeMode: 'Kamikaze',
-};
-
-/*
-  Why:
-  - The UI previously displayed key-like labels (server_name, game_mode, motd).
-  - These are correct for debugging, but not ideal for end users.
-  - Keep the underlying keys stable, and only change the display label.
-
-  Note:
-  - If you ever add new rows, this map is the single place to keep labels tidy.
-*/
 const SERVER_LABEL_MAP = {
   server_name: 'Server Name',
   map: 'Current Map',
@@ -249,121 +198,13 @@ const SERVER_LABEL_MAP = {
   difficulty: 'Difficulty',
 };
 
-/*
-  Normalize raw server values:
-  - null/undefined -> ""
-  - convert to string
-  - trim() to remove Raven Shield trailing spaces
-*/
-function normId(x){
-  return (x ?? '').toString().trim();
-}
-
-/*
-  Humanize unknown IDs (fallback):
-  - Splits CamelCase to words
-  - Removes/rewrites a few common prefixes
-  - Keeps it cheap (simple regex + replaces)
-*/
-function humanizeRvsId(raw){
-  const s0 = normId(raw);
-  if (!s0) return '';
-
-  // Split CamelCase into words: FooBar99 -> Foo Bar 99
-  let s = s0.replace(/([a-z])([A-Z0-9])/g, '$1 $2');
-  s = s.replace(/([0-9])([A-Za-z])/g, '$1 $2');
-
-  // Optional prefix cleanups
-  s = s.replace(/^R6/i, 'R6 ');
-  s = s.replace(/^R63rd/i, 'R6 3rd ');
-
-  return s.trim();
-}
-
-function weaponName(raw){
-  const id = normId(raw);
-  if (!id) return '';
-  return WEAPON_NAME_MAP[id] || humanizeRvsId(id);
-}
-
-function gadgetName(raw){
-  const id = normId(raw);
-  if (!id) return '';
-  return GADGET_NAME_MAP[id] || humanizeRvsId(id);
-}
-
-/*
-  Map a raw game mode token to a friendly display name.
-
-  Behavior:
-  - If it matches our explicit table (GAME_MODE_NAME_MAP), use that.
-  - Otherwise, attempt to humanize it:
-    - Strips "RGM_" prefix
-    - Removes trailing "Mode"
-    - Converts CamelCase to words
-*/
-function gameModeName(raw){
-  const id = normId(raw);
-  if (!id) return '';
-
-  // Fast path: known modes
-  if (GAME_MODE_NAME_MAP[id]) return GAME_MODE_NAME_MAP[id];
-
-  // Fallback humanization for unknown/unexpected tokens
-  let s = id;
-
-  // Common prefix used by Raven Shield game modes
-  s = s.replace(/^RGM_/, '');
-
-  // Common suffix patterns
-  s = s.replace(/Mode$/, '');              // "...Mode" -> "..."
-  s = s.replace(/Adv$/, 'Adversarial');    // defensive: "...Adv" -> "...Adversarial"
-
-  // Split CamelCase
-  s = s.replace(/([a-z])([A-Z0-9])/g, '$1 $2');
-  s = s.replace(/([0-9])([A-Za-z])/g, '$1 $2');
-
-  // Cleanup
-  s = s.replace(/\s+/g, ' ').trim();
-
-  // Conservative extra normalization for display
-  s = s.replace(/\bAdv\b/g, 'Adversarial');
-  s = s.replace(/\bAdv Mode\b/g, 'Adversarial');
-
-  return s;
-}
-
-/*
-  - Input is server.difficulty_level (numeric or numeric-string).
-  - Output is "2 (Veteran)" style.
-*/
 const DIFF_LABEL_MAP = {
   1: 'Recruit',
   2: 'Veteran',
   3: 'Elite',
 };
 
-function difficultyText(rawLevel){
-  const n = Number(rawLevel);
-  if (!Number.isFinite(n) || n <= 0) return '(unknown)';
-  const label = DIFF_LABEL_MAP[n];
-  return label ? `${n} (${label})` : String(n);
-}
-
-/*
-  Basic HTML escape for user/server-provided strings.
-*/
-function escapeHtml(s){
-  return String(s ?? '')
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#039;');
-}
-
 const WEAPON_INFO_MAP = {
-  // This took way too damn long to do
   BuckShotgunM1: {label: 'M1 Shotgun (shot)', url: 'https://en.wikipedia.org/wiki/Benelli_M1'},
   BuckShotgunSPAS12: {label: 'SPAS-12 Shotgun (shot)', url: 'https://en.wikipedia.org/wiki/Franchi_SPAS-12'},
   BuckShotgunUSAS12: {label: 'USAS-12 Shotgun (shot)', url: 'https://en.wikipedia.org/wiki/Daewoo_Precision_Industries_USAS-12'},
@@ -386,8 +227,8 @@ const WEAPON_INFO_MAP = {
   CMagPistol92FS: {label: '92FS Pistol', url: 'https://en.wikipedia.org/wiki/Beretta_M9'},
   CMagPistolAPArmy: {label: 'AP Army Pistol', url: 'https://en.wikipedia.org/wiki/FN_Five-seven'},
   CMagPistolCZ61: {label: 'CZ 61 Pistol', url: 'https://en.wikipedia.org/wiki/Škorpion#vz._61_E'},
-  CMagPistolDesertEagle357: {label: 'Desert Eagle .357 Pistol', url: 'https://en.wikipedia.org/wiki/Desert_Eagle'},
-  CMagPistolDesertEagle50: {label: 'Desert Eagle .50 Pistol', url: 'https://en.wikipedia.org/wiki/Desert_Eagle'},
+  CMagPistolDesertEagle357: {label: 'Desert Eagle.357 Pistol', url: 'https://en.wikipedia.org/wiki/Desert_Eagle'},
+  CMagPistolDesertEagle50: {label: 'Desert Eagle.50 Pistol', url: 'https://en.wikipedia.org/wiki/Desert_Eagle'},
   CMagPistolMac119: {label: 'Mac 11/9 Pistol', url: 'https://en.wikipedia.org/wiki/MAC-11'},
   CMagPistolMicroUzi: {label: 'Micro Uzi Pistol', url: 'https://en.wikipedia.org/wiki/Uzi#Military_variants'},
   CMagPistolMk23: {label: 'Mk 23 Pistol', url: 'https://en.wikipedia.org/wiki/Heckler_%26_Koch_Mark_23'},
@@ -431,8 +272,8 @@ const WEAPON_INFO_MAP = {
   NormalPistol92FS: {label: '92FS Pistol', url: 'https://en.wikipedia.org/wiki/Beretta_M9'},
   NormalPistolAPArmy: {label: 'AP Army Pistol', url: 'https://en.wikipedia.org/wiki/FN_Five-seven'},
   NormalPistolCZ61: {label: 'CZ 61 Pistol', url: 'https://en.wikipedia.org/wiki/Škorpion#vz._61_E'},
-  NormalPistolDesertEagle357: {label: 'Desert Eagle .357 Pistol', url: 'https://en.wikipedia.org/wiki/Desert_Eagle'},
-  NormalPistolDesertEagle50: {label: 'Desert Eagle .50 Pistol', url: 'https://en.wikipedia.org/wiki/Desert_Eagle'},
+  NormalPistolDesertEagle357: {label: 'Desert Eagle.357 Pistol', url: 'https://en.wikipedia.org/wiki/Desert_Eagle'},
+  NormalPistolDesertEagle50: {label: 'Desert Eagle.50 Pistol', url: 'https://en.wikipedia.org/wiki/Desert_Eagle'},
   NormalPistolMac119: {label: 'Mac 11/9 Pistol', url: 'https://en.wikipedia.org/wiki/MAC-11'},
   NormalPistolMicroUzi: {label: 'Micro Uzi Pistol', url: 'https://en.wikipedia.org/wiki/Uzi#Military_variants'},
   NormalPistolMk23: {label: 'Mk 23 Pistol', url: 'https://en.wikipedia.org/wiki/Heckler_%26_Koch_Mark_23'},
@@ -476,8 +317,8 @@ const WEAPON_INFO_MAP = {
   SilencedAssaultType97: {label: 'Type 97 Rifle', url: 'https://en.wikipedia.org/wiki/QBZ-95#QBZ-97'},
   SilencedPistol92FS: {label: '92FS Pistol', url: 'https://en.wikipedia.org/wiki/Beretta_M9'},
   SilencedPistolAPArmy: {label: 'AP Army Pistol', url: 'https://en.wikipedia.org/wiki/FN_Five-seven'},
-  SilencedPistolDesertEagle357: {label: 'Desert Eagle .357 Pistol', url: 'https://en.wikipedia.org/wiki/Desert_Eagle'},
-  SilencedPistolDesertEagle50: {label: 'Desert Eagle .50 Pistol', url: 'https://en.wikipedia.org/wiki/Desert_Eagle'},
+  SilencedPistolDesertEagle357: {label: 'Desert Eagle.357 Pistol', url: 'https://en.wikipedia.org/wiki/Desert_Eagle'},
+  SilencedPistolDesertEagle50: {label: 'Desert Eagle.50 Pistol', url: 'https://en.wikipedia.org/wiki/Desert_Eagle'},
   SilencedPistolMk23: {label: 'Mk 23 Pistol', url: 'https://en.wikipedia.org/wiki/Heckler_%26_Koch_Mark_23'},
   SilencedPistolP228: {label: 'P228 Pistol', url: 'https://en.wikipedia.org/wiki/SIG_Sauer_P226#P228_(M11)'},
   SilencedPistolSPP: {label: 'SPP Pistol', url: 'https://en.wikipedia.org/wiki/Steyr_TMP#SPP'},
@@ -505,46 +346,68 @@ const WEAPON_INFO_MAP = {
   SilencedSubUzi: {label: 'Uzi SMG', url: 'https://en.wikipedia.org/wiki/Uzi'},
   SlugShotgunM1: {label: 'M1 Shotgun (slug)', url: 'https://en.wikipedia.org/wiki/Benelli_M1'},
   SlugShotgunSPAS12: {label: 'SPAS-12 Shotgun (slug)', url: 'https://en.wikipedia.org/wiki/Franchi_SPAS-12'},
-  SlugShotgunUSAS12: {label: 'USAS-12 Shotgun (slug', url: 'https://en.wikipedia.org/wiki/Daewoo_Precision_Industries_USAS-12'},
+  SlugShotgunUSAS12: {label: 'USAS-12 Shotgun (slug)', url: 'https://en.wikipedia.org/wiki/Daewoo_Precision_Industries_USAS-12'},
 };
 
-// Allowlist URLs (prevents XSS via javascript: etc.)
+/*
+  ============================================================================
+  Helper functions
+  ============================================================================
+*/
+
+function normId(x){
+  return (x ?? '').toString().trim();
+}
+
+function humanizeRvsId(raw){
+  const s0 = normId(raw);
+  if (!s0) return '';
+  let s = s0.replace(/([a-z])([A-Z0-9])/g, '$1 $2');
+  s = s.replace(/([0-9])([A-Za-z])/g, '$1 $2');
+  s = s.replace(/^R6/i, 'R6 ');
+  s = s.replace(/^R63rd/i, 'R6 3rd ');
+  return s.trim();
+}
+
+function weaponName(raw){
+  const id = normId(raw);
+  if (!id) return '';
+  return WEAPON_NAME_MAP[id] || humanizeRvsId(id);
+}
+
+function gadgetName(raw){
+  const id = normId(raw);
+  if (!id) return '';
+  return GADGET_NAME_MAP[id] || humanizeRvsId(id);
+}
+
+function difficultyText(rawLevel){
+  const n = Number(rawLevel);
+  if (!Number.isFinite(n) || n <= 0) return '(unknown)';
+  const label = DIFF_LABEL_MAP[n];
+  return label ? `${n} (${label})` : String(n);
+}
+
 function isAllowedWeaponUrl(url){
   const u = (url ?? '').toString().trim();
   if (!u) return false;
-  // Tight allowlist example: only Wikipedia
   return /^https?:\/\/en\.wikipedia\.org\//i.test(u);
 }
 
-// Render label as safe HTML link (or plain escaped text)
 function renderWeaponHtml(rawWeaponId){
   const id = (rawWeaponId ?? '').toString().trim();
   if (!id) return escapeHtml('(none)');
-
   const info = WEAPON_INFO_MAP[id];
-  if (!info) {
-    // Fallback to existing behavior (whatever your weaponName() does)
-    return escapeHtml(weaponName(id));
-  }
-
+  if (!info) return escapeHtml(weaponName(id));
   const label = (info.label ?? id).toString();
   const url = (info.url ?? '').toString();
-
-  if (!isAllowedWeaponUrl(url)) {
-    return escapeHtml(label);
-  }
-
+  if (!isAllowedWeaponUrl(url)) return escapeHtml(label);
   return `<a href="${escapeHtml(url)}" class="wikiLink" target="_blank" rel="noopener noreferrer">${escapeHtml(label)}</a>`;
 }
-/*
-  Render helper used by server/map cards.
-  - We keep the "key" argument for internal consistency, but we display a more
-    human-friendly label to the user (SERVER_LABEL_MAP).
-*/
+
 function row(k, v){
   const div = document.createElement('div');
   div.className = 'row';
-
   const label = SERVER_LABEL_MAP[k] || k;
   div.innerHTML =
     `<div class="k">${escapeHtml(label)}</div>` +
@@ -552,41 +415,23 @@ function row(k, v){
   return div;
 }
 
-/*
-  Why:
-  - The maplist card contains only maps, but highlight the currently
-    active map (server.map) with emphasis.
-*/
 function mapRow(mapName, isCurrent){
   const div = document.createElement('div');
   div.className = 'row';
-
-  // Use a dedicated CSS class for the value so the emphasis is obvious but
-  // doesn't affect the entire row layout.
   const vClass = isCurrent ? 'v currentMap' : 'v';
-
   div.innerHTML =
     `<div class="k">${escapeHtml('Map')}</div>` +
     `<div class="${vClass}">${escapeHtml(mapName)}</div>`;
   return div;
 }
 
-/*
-  Inject a small style block for the current-map emphasis.
-
-  Why we do it here:
-  - Avoid touching status.css by adding a scoped style tag from JS.
-*/
 function ensureCurrentMapStyles(){
   if (document.getElementById('currentMapStyles')) return;
-
   const style = document.createElement('style');
   style.id = 'currentMapStyles';
-  style.textContent = `
-    /* v=19: highlight current map in Maplist */
-    .currentMap{
+  style.textContent = `.currentMap{
       font-weight: 800;
-      color: #35d07f; /* bold green */
+      color: #35d07f;
       text-shadow: 0 0 10px rgba(53, 208, 127, 0.20);
     }
   `;
@@ -594,40 +439,308 @@ function ensureCurrentMapStyles(){
 }
 
 /*
-  Render the loadout overlay cell.
-
-  NOTE:
-  - The backend provides: primary_weapon, secondary_weapon, primary_gadget, secondary_gadget.
-  - Map weapon/gadget IDs to friendly names here so the UI stays fast and simple.
+  ============================================================================
+  Last Rounds rendering
+  ============================================================================
 */
-function renderLoadoutCell(p){
-  const pw = weaponName(p?.primary_weapon);
-  const sw = weaponName(p?.secondary_weapon);
-  const pg = gadgetName(p?.primary_gadget);
-  const sg = gadgetName(p?.secondary_gadget);
+
+function ensureLastRoundsStyles(){
+  if (document.getElementById('lastRoundsStyles')) return;
+  const style = document.createElement('style');
+  style.id = 'lastRoundsStyles';
+  style.textContent = `.roundBlock{
+      margin-bottom: 14px;
+      background: var(--card2, rgba(255,255,255,0.08));
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+      padding: 12px;
+    }.roundBlock:last-child{
+      margin-bottom: 0;
+    }.roundHeader{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 16px;
+      align-items: baseline;
+      margin-bottom: 10px;
+    }.roundMeta{
+      font-size: 11px;
+      color: rgba(255,255,255,0.55);
+    }.roundMeta b{
+      color: rgba(255,255,255,0.85);
+    }.roundTable{
+      width: 100%;
+      border-collapse: collapse;
+    }.roundTable th,.roundTable td{
+      padding: 6px 8px;
+      text-align: left;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      font-size: 11px;
+    }.roundTable th{
+      color: rgba(255,255,255,0.5);
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing:.2px;
+      font-size: 10px;
+    }.roundTable tr:hover td{
+      background: rgba(255,255,255,0.03);
+    }.roundAge{
+      color: #8ab4ff;
+      font-weight: 700;
+      font-size: 12px;
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+function fmtRoundTime(seconds){
+  if (seconds == null || !Number.isFinite(seconds)) return '—';
+  const m = Math.floor(seconds / 60);
+  const s = Math.round(seconds % 60);
+  return `${m}m ${String(s).padStart(2, '0')}s`;
+}
+
+function fmtTimeAgo(isoTs){
+  try{
+    const then = new Date(isoTs);
+    const now = new Date();
+    const diffMs = now - then;
+    if (diffMs < 0) return 'just now';
+
+    const diffS = Math.floor(diffMs / 1000);
+    if (diffS < 60) return `${diffS}s ago`;
+
+    const diffM = Math.floor(diffS / 60);
+    if (diffM < 60) return `${diffM}m ago`;
+
+    const diffH = Math.floor(diffM / 60);
+    if (diffH < 24) return `${diffH}h ${diffM % 60}m ago`;
+
+    const diffD = Math.floor(diffH / 24);
+    return `${diffD}d ${diffH % 24}h ago`;
+  } catch(e){
+    return '—';
+  }
+}
+
+async function fetchLastRounds(){
+  if (!lastRoundsWrap) return;
+
+  const serverIdent = document.body.getAttribute('data-server-ident') || '';
+  if (!serverIdent){
+    lastRoundsWrap.innerHTML = `<div class="small">(no server ident configured)</div>`;
+    return;
+  }
+
+  try{
+    const q = new URLSearchParams();
+    q.set('server_ident', serverIdent);
+    q.set('limit', '5');
+
+    const r = await fetch(`/api/stats/last_rounds?${q.toString()}`, { cache: 'no-store' });
+    const j = await r.json();
+
+    if (!j.ok){
+      lastRoundsWrap.innerHTML = `<div class="small">Error: ${escapeHtml(j.error || 'unknown')}</div>`;
+      return;
+    }
+
+    const rounds = j.rounds || [];
+    if (rounds.length === 0){
+      lastRoundsWrap.innerHTML = `<div class="small">No rounds recorded yet.</div>`;
+      return;
+    }
+
+    ensureLastRoundsStyles();
+
+    let html = '';
+    for (const round of rounds){
+      const modeFriendly = gameModeName(round.game_mode) || round.game_mode || '—';
+      const mapName = round.map || '—';
+      const rt = fmtRoundTime(round.round_time);
+      const ago = fmtTimeAgo(round.ts);
+
+      html += `<div class="roundBlock">`;
+      html += `<div class="roundHeader">`;
+      html += `<span class="roundAge">${escapeHtml(ago)}</span>`;
+      html += `<span class="roundMeta"><b>${escapeHtml(mapName)}</b></span>`;
+      html += `<span class="roundMeta">${escapeHtml(modeFriendly)}</span>`;
+      html += `<span class="roundMeta">Round time: <b>${escapeHtml(rt)}</b></span>`;
+      html += `</div>`;
+
+      const players = round.players || [];
+      if (players.length === 0){
+        html += `<div class="small">(no players)</div>`;
+      } else {
+        html += `<table class="roundTable">`;
+        html += `<thead><tr>`;
+        html += `<th>Player</th><th>Kills</th><th>Deaths</th><th>Hits</th><th>Fired</th>`;
+        html += `</tr></thead><tbody>`;
+        for (const p of players){
+          const name = p.name || p.ubi || '—';
+          const ubi = p.ubi || '';
+          const kills = p.kills != null ? p.kills : '—';
+          const deaths = p.deaths != null ? p.deaths : '—';
+          const hits = p.hits != null ? p.hits : '—';
+          const fired = p.fired != null ? p.fired : '—';
+          html += `<tr>`;
+          if (ubi){
+            const serverIdent = document.body.getAttribute('data-server-ident') || '';
+            const href = `/player?ubi=${encodeURIComponent(ubi)}` + (serverIdent ? `&server_ident=${encodeURIComponent(serverIdent)}` : '');
+            html += `<td class="mono"><a class="playerLink" href="${escapeHtml(href)}">${escapeHtml(name)}</a></td>`;
+          } else {
+            html += `<td class="mono">${escapeHtml(name)}</td>`;
+          }
+          html += `<td class="mono">${escapeHtml(kills)}</td>`;
+          html += `<td class="mono">${escapeHtml(deaths)}</td>`;
+          html += `<td class="mono">${escapeHtml(hits)}</td>`;
+          html += `<td class="mono">${escapeHtml(fired)}</td>`;
+          html += `</tr>`;
+        }
+        html += `</tbody></table>`;
+      }
+
+      html += `</div>`;
+    }
+
+    lastRoundsWrap.innerHTML = html;
+
+  } catch(e){
+    lastRoundsWrap.innerHTML = `<div class="small">Fetch error: ${escapeHtml(String(e))}</div>`;
+  }
+}
+
+/*
+  ============================================================================
+  Loadout popup system (fixed-position overlay, outside the table)
+  ============================================================================
+*/
+
+function ensureLoadoutStyles(){
+  if (document.getElementById('loadoutPopupStyles')) return;
+  const style = document.createElement('style');
+  style.id = 'loadoutPopupStyles';
+  style.textContent = `.loadoutLink{
+      color: var(--link, #8ab4ff);
+      cursor: pointer;
+      font-weight: 800;
+      text-transform: uppercase;
+      font-size: 11px;
+      letter-spacing:.2px;
+      user-select: none;
+      -webkit-user-select: none;
+      border: none;
+      background: none;
+      padding: 0;
+    }.loadoutLink:hover{
+      color: #b8d4ff;
+    }.loadoutOverlay{
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 9998;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }.loadoutPopup{
+      background: #141c2b;
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 14px;
+      padding: 20px 24px;
+      min-width: 300px;
+      max-width: 480px;
+      z-index: 9999;
+      color: rgba(255,255,255,0.92);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+    }.loadoutPopup h3{
+      margin: 0 0 14px 0;
+      font-size: 15px;
+      font-weight: 700;
+      color: rgba(255,255,255,0.95);
+    }.loadoutPopupGrid{
+      display: grid;
+      grid-template-columns: 110px 1fr;
+      gap: 8px 12px;
+      align-items: baseline;
+    }.loadoutPopupK{
+      color: rgba(255,255,255,0.55);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing:.2px;
+      font-weight: 800;
+    }.loadoutPopupV{
+      font-size: 12px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }.loadoutPopupV a.wikiLink{
+      color: var(--link, #8ab4ff);
+      text-decoration: none;
+    }.loadoutPopupV a.wikiLink:hover{
+      text-decoration: underline;
+    }.loadoutClose{
+      display: inline-block;
+      margin-top: 14px;
+      padding: 6px 16px;
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 10px;
+      background: rgba(255,255,255,0.05);
+      color: rgba(255,255,255,0.85);
+      cursor: pointer;
+      font-size: 12px;
+    }.loadoutClose:hover{
+      background: rgba(255,255,255,0.1);
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+function showLoadoutPopup(playerName, p){
+  ensureLoadoutStyles();
 
   const pwV = renderWeaponHtml(p?.primary_weapon);
   const swV = renderWeaponHtml(p?.secondary_weapon);
-  // const swV = sw ? escapeHtml(sw) : '(none)';
+  const pg = gadgetName(p?.primary_gadget);
+  const sg = gadgetName(p?.secondary_gadget);
   const pgV = pg ? escapeHtml(pg) : '(none)';
   const sgV = sg ? escapeHtml(sg) : '(none)';
 
-  return (
-    `<td class="loadoutCell">` +
-      `<details class="loadoutDetails">` +
-        `<summary>Show</summary>` +
-        `<div class="loadoutBox">` +
-          `<div class="loadoutGrid">` +
-            `<div class="loadoutK">Primary</div><div class="loadoutV mono">${pwV}</div>` +
-            `<div class="loadoutK">Secondary</div><div class="loadoutV mono">${swV}</div>` +
-            `<div class="loadoutK">Gadget 1</div><div class="loadoutV mono">${pgV}</div>` +
-            `<div class="loadoutK">Gadget 2</div><div class="loadoutV mono">${sgV}</div>` +
-          `</div>` +
-        `</div>` +
-      `</details>` +
-    `</td>`
-  );
+  const overlay = document.createElement('div');
+  overlay.className = 'loadoutOverlay';
+
+  overlay.innerHTML =
+    `<div class="loadoutPopup">` +
+      `<h3>${escapeHtml(playerName)} — Loadout</h3>` +
+      `<div class="loadoutPopupGrid">` +
+        `<div class="loadoutPopupK">Primary</div><div class="loadoutPopupV">${pwV}</div>` +
+        `<div class="loadoutPopupK">Secondary</div><div class="loadoutPopupV">${swV}</div>` +
+        `<div class="loadoutPopupK">Gadget 1</div><div class="loadoutPopupV">${pgV}</div>` +
+        `<div class="loadoutPopupK">Gadget 2</div><div class="loadoutPopupV">${sgV}</div>` +
+      `</div>` +
+      `<button class="loadoutClose">Close</button>` +
+    `</div>`;
+
+  document.body.appendChild(overlay);
+
+  // Close on overlay click (outside popup)
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) overlay.remove();
+  });
+
+  // Close on button click
+  overlay.querySelector('.loadoutClose').addEventListener('click', () => {
+    overlay.remove();
+  });
+
+  // Close on Escape
+  const escHandler = (e) => {
+    if (e.key === 'Escape'){ overlay.remove(); document.removeEventListener('keydown', escHandler); }
+  };
+  document.addEventListener('keydown', escHandler);
 }
+
+/*
+  ============================================================================
+  Players table renderer
+  ============================================================================
+*/
 
 function renderPlayers(players){
   if (!playersWrap) return;
@@ -636,6 +749,8 @@ function renderPlayers(players){
     playersWrap.innerHTML = `<div class="small">No players.</div>`;
     return;
   }
+
+  ensureLoadoutStyles();
 
   const cols = [
     ["name","Name"],
@@ -647,40 +762,57 @@ function renderPlayers(players){
     ["accuracy","%"],
   ];
 
-
-  // Adjust if you have players with long names
   let name_width = 20;
 
   let tableHtml =
     `<table>` +
       `<thead><tr>` +
-        // Widen Name column and tighten others to give it more room
-        `<th style="width:`+name_width+`%;">${escapeHtml(cols[0][1])}</th>` + // Name (wider)
-        `<th>${escapeHtml(cols[1][1])}</th>` +  // Ping
-        `<th>${escapeHtml(cols[2][1])}</th>` +  // Kills
-        `<th>${escapeHtml(cols[3][1])}</th>` +  // Deaths
-        `<th>${escapeHtml(cols[4][1])}</th>` +  // Hits
-        `<th>${escapeHtml(cols[5][1])}</th>` +  // Fired
-        `<th>${escapeHtml(cols[6][1])}</th>` +  // Acc
-        `<th style="width:15%;">Loadout</th>` + // Loadout
+        `<th style="width:${name_width}%;">${escapeHtml(cols[0][1])}</th>` +
+        `<th>${escapeHtml(cols[1][1])}</th>` +
+        `<th>${escapeHtml(cols[2][1])}</th>` +
+        `<th>${escapeHtml(cols[3][1])}</th>` +
+        `<th>${escapeHtml(cols[4][1])}</th>` +
+        `<th>${escapeHtml(cols[5][1])}</th>` +
+        `<th>${escapeHtml(cols[6][1])}</th>` +
+        `<th style="width:15%;">Loadout</th>` +
       `</tr></thead>` +
       `<tbody>`;
 
-  for (const p of players){
+  for (let i = 0; i < players.length; i++){
+    const p = players[i];
     tableHtml += `<tr>`;
+    const serverIdent = document.body.getAttribute('data-server-ident') || '';
     tableHtml += cols.map(([k]) => {
       const v = (p && p[k] !== undefined && p[k] !== null) ? String(p[k]) : '';
+      if (k === 'name' && p.ubi){
+        const href = `/player?ubi=${encodeURIComponent(p.ubi)}` + (serverIdent ? `&server_ident=${encodeURIComponent(serverIdent)}` : '');
+        return `<td class="mono"><a class="playerLink" href="${escapeHtml(href)}">${escapeHtml(v)}</a></td>`;
+      }
       return `<td class="mono">${escapeHtml(v)}</td>`;
     }).join('');
-    tableHtml += renderLoadoutCell(p);
+    tableHtml += `<td><span class="loadoutLink" data-player-idx="${i}">Show</span></td>`;
     tableHtml += `</tr>`;
   }
 
   tableHtml += `</tbody></table>`;
 
-  // Keep wrapper (prevents table clipping issues and matches your current CSS)
   playersWrap.innerHTML = `<div class="tableClip">${tableHtml}</div>`;
+
+  // Attach click handlers for loadout popups
+  playersWrap.querySelectorAll('.loadoutLink').forEach(el => {
+    el.addEventListener('click', () => {
+      const idx = parseInt(el.getAttribute('data-player-idx'), 10);
+      const p = players[idx];
+      if (p) showLoadoutPopup(p.name || '(unknown)', p);
+    });
+  });
 }
+
+/*
+  ============================================================================
+  Refresh / polling
+  ============================================================================
+*/
 
 let inflight = false;
 
@@ -689,7 +821,6 @@ async function refresh(){
   inflight = true;
 
   try{
-    // Ensure small style injection exists before we render maplist rows.
     ensureCurrentMapStyles();
 
     const r = await fetch('/api/query', { cache: 'no-store' });
@@ -714,11 +845,6 @@ async function refresh(){
 
     const s = data.server || {};
 
-    /*
-      Server card rows:
-      - We keep the original data fields, but improve the display labels via SERVER_LABEL_MAP.
-      - We show game_mode from s.mode, mapped to a friendly display string via gameModeName().
-    */
     serverRows.appendChild(row('server_name', s.name || '(unknown)'));
     serverRows.appendChild(row('map', s.map || '(unknown)'));
 
@@ -727,21 +853,14 @@ async function refresh(){
     serverRows.appendChild(row('game_mode', gmFriendly));
 
     serverRows.appendChild(row('difficulty', difficultyText(s.difficulty_level)));
-
     serverRows.appendChild(row('version', s.version || '(unknown)'));
     serverRows.appendChild(row('players', `${s.players_current ?? ''} / ${s.players_max ?? ''}`));
 
-    // Messenger + MotD
     serverRows.appendChild(row('messenger', s.message || ''));
     serverRows.appendChild(row('motd', s.motd || ''));
 
     renderPlayers(data.players || []);
 
-    /*
-      Maplist card:
-      - Show all maps.
-      - Highlight the current map (server.map) with bold green emphasis.
-    */
     const currentMap = normId(s.map);
     const maps = data.maplist || [];
     if (maps.length === 0){
@@ -751,8 +870,6 @@ async function refresh(){
       for (let i = 0; i < maps.length; i++){
         const m = maps[i];
         const isCurrent = currentMap && normId(m) === currentMap;
-        // Keep existing numeric indexing for debugging, but render the map
-        // value with emphasis when it matches the active server map.
         const idx = String(i + 1).padStart(2,'0');
         const div = document.createElement('div');
         div.className = 'row';
@@ -764,6 +881,9 @@ async function refresh(){
     }
 
     rawKv.textContent = JSON.stringify(data.kv || {}, null, 2);
+
+    // Fetch last rounds
+    fetchLastRounds();
 
   } catch (e){
     dot.className = 'dot bad';

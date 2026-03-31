@@ -6,7 +6,9 @@ Project: RVSDash - Raven Shield Dashboard (Status and Admin)
 Purpose:
 - Read-only stats page behavior.
 - Keeps a familiar UX: dot + "last update" + refresh button.
-- For now, fetches /api/query and shows raw JSON (safe, read-only).
+- Fetches stats APIs and renders tables with score column for players.
+- Clickable player names link to per-player detail page.
+- Sortable columns on the players table.
 ==============================================================================
 */
 
@@ -50,6 +52,51 @@ function tickClocks(){
 setInterval(tickClocks, 500);
 tickClocks();
 
+/*
+  Column header display names.
+  Keys not listed here display as-is.
+*/
+const COL_LABEL_MAP = {
+  server_ident: 'Server',
+  ubi: 'Player',
+  kills: 'Kills',
+  deaths: 'Deaths',
+  fired: 'Fired',
+  hits: 'Hits',
+  rounds_played: 'Rounds',
+  score: 'Score',
+  map: 'Map',
+  game_mode: 'Game Mode',
+};
+
+/*
+  Inject styles for player links and sortable headers — once.
+*/
+function ensureStatsStyles(){
+  if (document.getElementById('statsExtraStyles')) return;
+  const style = document.createElement('style');
+  style.id = 'statsExtraStyles';
+  style.textContent = `.playerLink{
+      color: #8ab4ff;
+      cursor: pointer;
+      text-decoration: none;
+      border-bottom: 1px dotted rgba(138,180,255,0.4);
+    }.playerLink:hover{
+      color: #b8d4ff;
+      border-bottom-color: rgba(138,180,255,0.7);
+    }.sortTh{
+      cursor: pointer;
+      user-select: none;
+      -webkit-user-select: none;
+    }.sortTh:hover{
+      color: rgba(255,255,255,0.85);
+    }.sortActive{
+      color: #8ab4ff;
+    }
+  `;
+  document.head.appendChild(style);
+}
+
 async function refresh(){
   if (statsStatus) statsStatus.textContent = 'Loading…';
   if (lastUpdate) lastUpdate.textContent = 'Fetching stats…';
@@ -84,11 +131,11 @@ async function refresh(){
     if (statsStatus) statsStatus.textContent = ok ? 'OK' : 'Error';
     if (lastUpdate) lastUpdate.textContent = `Updated: ${new Date().toLocaleTimeString()}`;
 
-    // Raw debug blob (keeps your existing "Raw payload" card useful)
+    // Raw debug blob
     if (rawOut) rawOut.textContent = JSON.stringify({ servers:srvJ, players:plyJ, maps:mapJ, modes:modeJ }, null, 2);
 
     renderTable(serversWrap, ['server_ident','kills','deaths','fired','hits','rounds_played'], srvJ?.rows || []);
-    renderTable(playersTotalsWrap, ['server_ident','ubi','kills','deaths','fired','hits','rounds_played'], plyJ?.rows || []);
+    renderPlayersTable(playersTotalsWrap, plyJ?.rows || [], ident);
     renderTable(mapsWrap, ['map','kills','deaths','fired','hits','rounds_played'], mapJ?.rows || []);
     renderTable(modesWrap, ['game_mode','kills','deaths','fired','hits','rounds_played'], modeJ?.rows || []);
   } catch (e){
@@ -99,18 +146,7 @@ async function refresh(){
     if (playersTotalsWrap) playersTotalsWrap.textContent = `Error: ${String(e)}`;
     if (mapsWrap) mapsWrap.textContent = `Error: ${String(e)}`;
     if (modesWrap) modesWrap.textContent = `Error: ${String(e)}`;
-
   }
-}
-
-
-function escapeHtml(s){
-  return String(s ?? '')
-    .replace(/&/g,'&amp;')
-    .replace(/</g,'&lt;')
-    .replace(/>/g,'&gt;')
-    .replace(/"/g,'&quot;')
-    .replace(/'/g,'&#039;');
 }
 
 function renderTable(wrap, cols, rows){
@@ -120,14 +156,17 @@ function renderTable(wrap, cols, rows){
     return;
   }
   let html = `<div class="tableClip"><table><thead><tr>`;
-  html += cols.map(c => `<th>${escapeHtml(c)}</th>`).join('');
+  html += cols.map(c => `<th>${escapeHtml(COL_LABEL_MAP[c] || c)}</th>`).join('');
   html += `</tr></thead><tbody>`;
   for (const r of rows){
     html += `<tr>`;
-      html += cols.map(c => {
-      const isNum = ['kills','deaths','fired','hits','rounds_played'].includes(c);
+    html += cols.map(c => {
+      const isNum = ['kills','deaths','fired','hits','rounds_played','score'].includes(c);
+      const val = r?.[c];
+      let display = isNum && val != null ? Number(val).toLocaleString() : val;
+      if (c === 'game_mode' && val) display = gameModeName(val) || val;
       const cls = (isNum ? 'mono num' : 'mono');
-      return `<td class="${cls}">${escapeHtml(r?.[c])}</td>`;
+      return `<td class="${cls}">${escapeHtml(display)}</td>`;
     }).join('');
     html += `</tr>`;
   }
@@ -135,6 +174,98 @@ function renderTable(wrap, cols, rows){
   wrap.innerHTML = html;
 }
 
+/*
+  Players table state for sorting.
+*/
+let playersSortCol = 'score';
+let playersSortAsc = false;
+let lastPlayersRows = [];
+let lastPlayersServerIdent = '';
+
+function sortPlayersRows(rows, col, asc){
+  const numCols = ['kills','deaths','fired','hits','rounds_played','score'];
+  const isNum = numCols.includes(col);
+  const sorted = [...rows];
+  sorted.sort((a, b) => {
+    let va = a?.[col] ?? '';
+    let vb = b?.[col] ?? '';
+    if (isNum){
+      va = Number(va) || 0;
+      vb = Number(vb) || 0;
+    } else {
+      va = String(va).toLowerCase();
+      vb = String(vb).toLowerCase();
+    }
+    if (va < vb) return asc ? -1 : 1;
+    if (va > vb) return asc ? 1 : -1;
+    return 0;
+  });
+  return sorted;
+}
+
+function renderPlayersTable(wrap, rows, currentServerIdent){
+  if (!wrap) return;
+
+  lastPlayersRows = rows;
+  lastPlayersServerIdent = currentServerIdent;
+
+  if (!rows || rows.length === 0){
+    wrap.innerHTML = `<div class="small">(none)</div>`;
+    return;
+  }
+
+  ensureStatsStyles();
+
+  const cols = ['ubi','kills','deaths','fired','hits','rounds_played','score'];
+  const numCols = ['kills','deaths','fired','hits','rounds_played','score'];
+
+  const sorted = sortPlayersRows(rows, playersSortCol, playersSortAsc);
+
+  let html = `<div class="tableClip"><table><thead><tr>`;
+  for (const c of cols){
+    const label = COL_LABEL_MAP[c] || c;
+    const arrow = (c === playersSortCol) ? (playersSortAsc ? ' ▲' : ' ▼') : '';
+    const cls = (c === playersSortCol) ? 'sortTh sortActive' : 'sortTh';
+    html += `<th class="${cls}" data-sort-col="${escapeHtml(c)}">${escapeHtml(label)}${arrow}</th>`;
+  }
+  html += `</tr></thead><tbody>`;
+
+  for (const r of sorted){
+    html += `<tr>`;
+    for (const c of cols){
+      const val = r?.[c];
+      if (c === 'ubi'){
+        const ubi = val ?? '';
+        const si = r?.server_ident ?? currentServerIdent ?? '';
+        const href = `/player?ubi=${encodeURIComponent(ubi)}` + (si ? `&server_ident=${encodeURIComponent(si)}` : '');
+        html += `<td class="mono"><a class="playerLink" href="${escapeHtml(href)}">${escapeHtml(ubi)}</a></td>`;
+      } else {
+        const isNum = numCols.includes(c);
+        const display = isNum && val != null ? Number(val).toLocaleString() : val;
+        const cls = isNum ? 'mono num' : 'mono';
+        html += `<td class="${cls}">${escapeHtml(display)}</td>`;
+      }
+    }
+    html += `</tr>`;
+  }
+
+  html += `</tbody></table></div>`;
+  wrap.innerHTML = html;
+
+  // Attach sort click handlers to headers
+  wrap.querySelectorAll('.sortTh').forEach(th => {
+    th.addEventListener('click', () => {
+      const col = th.getAttribute('data-sort-col');
+      if (playersSortCol === col){
+        playersSortAsc = !playersSortAsc;
+      } else {
+        playersSortCol = col;
+        playersSortAsc = (col === 'ubi');
+      }
+      renderPlayersTable(wrap, lastPlayersRows, lastPlayersServerIdent);
+    });
+  });
+}
 
 refreshBtn?.addEventListener('click', refresh);
 

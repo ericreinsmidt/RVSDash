@@ -30,12 +30,49 @@ Operational notes:
 # The default Raven Shield game server IP that the dashboards will query/control.
 # This value is injected into the HTML pages via the __DEFAULT_TARGET__ placeholder
 # replacement in app/main.py, so the operator can confirm what the backend is using.
-DEFAULT_SERVER_IP = "XXX.XXX.XXX.XXX"
+DEFAULT_SERVER_IP = "123.123.123.123"
 
 # The UDP port on the Raven Shield server that responds to REPORTEXT queries and
 # accepts ADMIN commands (as configured on your game server).
-DEFAULT_SERVER_PORT = 8877
+DEFAULT_SERVER_PORT = 8777
 
+# The server_ident string used by the URLPost ingest system.
+# This must match the "ident" field sent by the game server's URLPost config.
+# Used by the status page to fetch recent round history.
+DEFAULT_SERVER_IDENT = "YOUR_UNIQUE_SERVER_IDENT"
+
+# ------------------------------------------------------------------------------
+# Site branding
+# ------------------------------------------------------------------------------
+
+# Page title prefix shown in the browser tab.
+# Each page appends its own suffix (e.g., "Raven Shield Dashboard — Status").
+SITE_TITLE = "Raven Shield"
+
+# H1 heading prefix shown at the top of each page.
+# Each page appends its own context (e.g., "Raven Shield Status").
+SITE_HEADING = "Raven Shield"
+
+
+# ------------------------------------------------------------------------------
+# Site navigation + footer
+# ------------------------------------------------------------------------------
+
+# Navigation links shown on every page.
+# Each entry is (href, label). Order matters — rendered left to right.
+# Change these if your deployment uses a reverse proxy with different paths,
+# or if you want to add/remove pages.
+NAV_LINKS = [
+    ("/", "/main"),
+    ("/status", "/status"),
+    ("/stats", "/statistics"),
+    ("/admin", "/administration"),
+]
+
+# Footer HTML content (shared across all pages).
+# This is injected raw — HTML entities are fine.
+# This MUST REMAIN UNALTERED on any installation as written.
+FOOTER_HTML = '&copy; 2026 <a href="https://obsoletesuperstars.com">geekstrada</a> &amp; <a href="https://dateranoth.com">Dateranoth</a>. Uses N4Admin &amp; URLPost &copy; 2004 Neil Popplewell.'
 
 # ------------------------------------------------------------------------------
 # UDP settings (query + admin)
