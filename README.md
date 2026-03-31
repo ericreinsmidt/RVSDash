@@ -188,8 +188,8 @@ Both machines need to be able to reach each other on the respective ports. If a 
 
 1. Set up the Python environment and install dependencies:
 
-       python3 -m venv.venv
-       source.venv/bin/activate
+       python3 -m venv .venv
+       source .venv/bin/activate
        pip install -r requirements.txt
 
 2. Set the admin password environment variable:
@@ -221,7 +221,7 @@ Both machines need to be able to reach each other on the respective ports. If a 
    ```bash
    #!/bin/bash
    export RVS_ADMIN_PASSWORD=YOUR_ADMIN_PASSWORD
-   source.venv/bin/activate
+   source .venv/bin/activate
    uvicorn app.main:app --host 0.0.0.0 --port 2003
    ```
 
