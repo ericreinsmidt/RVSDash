@@ -109,7 +109,7 @@ RVSDash/
 
 * Raven Shield dedicated game server
 * A machine to run RVSDash (can be the same machine or a different one)
-  * Python 3.11+ (probably works with 3.8+, but untested)
+  * Python 3.11+
   * Network access to the game server's beacon UDP port
 
 ### Network / Port Requirements
