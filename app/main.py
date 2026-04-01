@@ -487,8 +487,9 @@ def api_stats_player_nicks(ubi: str = "", server_ident: str = ""):
             aliases = [r[0] for r in alias_ubi_rows]
 
             return {"ok": True, "ubi": ubi, "nicks": nicks, "aliases": aliases}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+    except Exception:
+        logging.exception("Error while fetching player nicknames")
+        return {"ok": False, "error": "Internal server error while fetching player nicknames."}
 
 
 @app.get("/api/stats/player_detail")
