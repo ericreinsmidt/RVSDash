@@ -4,15 +4,12 @@ File: app/main.py
 Project: RVSDash - Raven Shield Dashboard
 Author: Eric Reinsmidt
 
-This is the "single source of truth" FastAPI app module.
-
-This corrected version focuses on:
-- Predictable configuration (no duplicate/conflicting path variables)
-- Exactly ONE /api/ingest endpoint (no route collisions)
-- Option B ingest behavior:
-  - Always persist to SQLite (system of record)
-  - Optionally append NDJSON as a write-ahead/audit log (env toggle)
-- Read-only stats APIs for /stats UI
+Purpose:
+- Single source of truth FastAPI application module.
+- Serves all HTML pages, static assets, and API endpoints.
+- Exactly one /api/ingest endpoint for round data ingestion.
+- Read-only stats APIs for the /stats and /status UIs.
+- Admin command endpoints (allowlisted, no raw passthrough).
 - Player alias/merge system for guest ubi fragmentation
 - Ingest logic decomposed into app/ingest.py
 
@@ -158,10 +155,22 @@ ENABLE_NDJSON_LOG = (os.environ.get("RVSDASH_ENABLE_NDJSON_LOG", "1").strip() !=
 # FastAPI application
 ##########################################
 
-app = FastAPI(title="RVS Status + Admin (Whitelist)")
+app = FastAPI(title="RVSDash - Raven Shield Dashboard")
 
 # Mount static assets so the browser can fetch /web/css/*, /web/js/*, /web/img/* etc.
 app.mount("/web", StaticFiles(directory=str(WEB_DIR)), name="web")
+
+
+@app.middleware("http")
+async def add_cache_headers(request, call_next):
+    """Add Cache-Control headers for static assets (CSS, JS, images)."""
+    response = await call_next(request)
+    path = request.url.path
+    if path.startswith("/web/"):
+        # Static assets use ?v=__CACHE_BUST__ which changes on restart,
+        # so aggressive caching is safe.
+        response.headers["Cache-Control"] = "public, max-age=86400"
+    return response
 
 
 @app.on_event("startup")
@@ -175,6 +184,41 @@ def _startup_init_db():
 
 # Cache-bust token: changes every time the app restarts.
 _CACHE_BUST = str(int(time.time()))
+
+
+@app.on_event("startup")
+def _startup_warm_caches():
+    """
+    Pre-warm caches at startup so the first real request is fast.
+
+    - Renders and caches all HTML pages (eliminates disk reads on first visit).
+    - Opens the shared SQLite read connection (eliminates connection setup on first query).
+    - Sends a throwaway UDP query to warm the network path (optional, best-effort).
+    """
+    logger.info("Warming caches...")
+
+    # Pre-render all HTML pages into _html_cache
+    for page in ("index.html", "status.html", "admin.html", "stats.html", "player.html"):
+        try:
+            _render_html(page)
+        except Exception:
+            logger.warning("Failed to pre-render %s", page)
+
+    # Open shared SQLite read connection
+    try:
+        _get_read_con()
+        logger.info("SQLite read connection opened.")
+    except Exception:
+        logger.warning("Failed to open SQLite read connection at startup.")
+
+    # Best-effort UDP warm-up (don't fail startup if server is unreachable)
+    try:
+        udp_query_reportext(DEFAULT_SERVER_IP, DEFAULT_SERVER_PORT)
+        logger.info("UDP warm-up query succeeded.")
+    except Exception:
+        logger.info("UDP warm-up query failed (server may be offline). This is OK.")
+
+    logger.info("Cache warming complete.")
 
 
 ##########################################

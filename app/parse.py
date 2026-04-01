@@ -3,34 +3,19 @@
 File: app/parse.py
 Project: RVSDash - Raven Shield Dashboard
 Author: Eric Reinsmidt
+
 Purpose:
-  - Parse REPORTEXT UDP datagrams into a simple KV dict.
-  - Convert raw KV into a structured JSON response for the UI.
+- Parse REPORTEXT UDP datagrams into a simple KV dict.
+- Convert raw KV into a structured JSON response for the UI.
+- Parse AVAILABLEMAPS and BANLIST multi-datagram responses.
 
-Protocol notes:
-- REPORTEXT returns multiple datagrams containing key/value fragments separated
-  by byte 0xB6 (¶ in some legacy dumps). We join + split on that delimiter.
-- Keys are 2 characters (e.g., A1, B1, L1, etc.).
-- IMPORTANT: hits field is parsed from key "HI" (requested change from "H1").
-
-Fields used:
-- A1: max players
-- B1: current players
-- I1 or MM: server name
-- E1: map
-- F1: game mode
-- D2: version
-- TA/TB/TC: message lines
-- K1: maplist (slash-separated)
-- L1: player names
-- O1: player kills
-- DE: player deaths
-- N1: player ping
-- HI: player hits
-- RF: rounds fired
-- AC: accuracy
-- DL: difficulty level
-- PW/SW/PG/SG: weapons & gadgets (slash-separated)
+Notes:
+- REPORTEXT datagrams use byte 0xB6 as a delimiter between KV fragments.
+- Keys are 2 characters (e.g., A1, B1, L1). Hits field uses key "HI".
+- KV reference: A1=max players, B1=current players, I1=server name,
+  E1=map, F1=game mode, D2=version, TA/TB/TC=message lines,
+  K1=maplist, L1=names, O1=kills, DE=deaths, N1=ping, HI=hits,
+  RF=fired, AC=accuracy, DL=difficulty, PW/SW/PG/SG=weapons/gadgets.
 ==============================================================================
 """
 

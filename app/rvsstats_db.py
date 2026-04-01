@@ -4,17 +4,14 @@ File: app/rvsstats_db.py
 Project: RVSDash - Raven Shield Dashboard
 Author: Eric Reinsmidt
 
-What this file does (high-level):
+Purpose:
 - SQLite persistence for RVSDash ingest stats.
-- Simple deployment: one SQLite file (no server).
-- Mirror legacy PHP behavior:
-  - create/find player by (server_ident, ubi)
-  - record nicks
-  - upsert per-(player, map, mode) accumulated stats and increment rounds
+- Single module for all database operations (schema, players, stats, aliases).
+- Mirrors legacy PHP behavior: find/create players, record nicks, upsert stats.
 
-Why this file exists:
-- Provides a single module for all database operations so the rest of the
-  codebase never touches SQLite directly.
+Notes:
+- Simple deployment: one SQLite file, no external database server.
+- The rest of the codebase never touches SQLite directly.
 ================================================================================
 """
 

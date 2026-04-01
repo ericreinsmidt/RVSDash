@@ -4,7 +4,7 @@ File: app/web/js/status.js
 Project: RVSDash - Raven Shield Dashboard
 Author: Eric Reinsmidt
 
-Purpose
+Purpose:
 - Client-side behavior for /status.
 - Polls GET /api/query and renders:
   - server summary rows

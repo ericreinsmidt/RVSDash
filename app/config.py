@@ -1,25 +1,17 @@
 """
 ================================================================================
 File: app/config.py
-Project: RVSDash - Raven Shield Dashboard (Status and Admin)
+Project: RVSDash - Raven Shield Dashboard
 Author: Eric Reinsmidt
 
-What this file does (high-level):
+Purpose:
 - Centralizes configuration constants used across the backend.
-- Defines the default Raven Shield server target (IP + UDP port) that the UI and
-  API will talk to when no other target-selection mechanism exists.
-- Defines UDP behavior tuning knobs used by both:
-  - status queries (REPORTEXT)
-  - admin commands (ADMIN ...)
+- Defines the default Raven Shield server target (IP + UDP port).
+- Defines UDP behavior tuning knobs (timeouts, retries, limits).
+- Defines site branding, navigation, and footer content.
 
-Why this file exists:
-- Keeps “magic numbers” (timeouts, retries, limits) in one place so you can tune
-  behavior without digging through networking code.
-- Allows deployments to change the default target server without modifying logic.
-
-Operational notes:
-- These values are imported by app/main.py (for the default target and admin send)
-  and by app/udp.py (for socket timeouts and drain/limit behavior).
+Notes:
+- Imported by app/main.py and app/udp.py.
 ================================================================================
 """
 
@@ -39,7 +31,7 @@ DEFAULT_SERVER_PORT = 8877
 # The server_ident string used by the URLPost ingest system.
 # This must match the "ident" field sent by the game server's URLPost config.
 # Used by the status page to fetch recent round history.
-DEFAULT_SERVER_IDENT = "YOUR_UNIQUE_SERVER_ID"
+DEFAULT_SERVER_IDENT = "YOUR_UNIQUE_SERVER_IDENT"
 
 # ------------------------------------------------------------------------------
 # Site branding

@@ -1,21 +1,15 @@
 """
 ================================================================================
-Logical path (in-project): app/udp.py
+File: app/udp.py
 Project: RVSDash - Raven Shield Dashboard
 Author: Eric Reinsmidt
 
-What this file does (high-level):
-- Implements the UDP transport layer for talking to the Raven Shield server.
-- Provides three main operations:
-  1) udp_query_reportext(ip, port):
-     - sends a REPORTEXT query and drains response datagrams
-  2) udp_query_availablemaps(ip, port):
-     - sends an AVAILABLEMAPS query and drains response datagrams
-  3) udp_send_admin_command(ip, port, payload):
-     - sends a single ADMIN command payload
-     - optionally reads a single reply datagram (best-effort)
+Purpose:
+- UDP transport layer for talking to the Raven Shield game server.
+- Sends queries (REPORTEXT, AVAILABLEMAPS, BANLIST) and drains multi-datagram responses.
+- Sends admin commands and optionally reads a single reply (best-effort).
 
-Why this file exists:
+Notes:
 - UDP is connectionless and responses may arrive in bursts across multiple
   datagrams. A naive single recv() would often miss most data.
 - Admin commands may or may not reply; we treat responses as optional.

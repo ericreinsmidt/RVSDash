@@ -2,6 +2,8 @@
 ==============================================================================
 File: app/web/js/player.js
 Project: RVSDash - Raven Shield Dashboard
+Author: Eric Reinsmidt
+
 Purpose:
 - Per-player detail page behavior.
 - Reads ?ubi= from URL, fetches /api/stats/player_detail, renders breakdown.

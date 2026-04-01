@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 """
-Safe-to-re-run importer for existing ingest NDJSON -> SQLite.
+================================================================================
+File: tools/import_existing_ndjson.py
+Project: RVSDash - Raven Shield Dashboard
+Author: Eric Reinsmidt
+
+Purpose:
+- Safe-to-re-run importer for existing ingest NDJSON -> SQLite.
 
 - Reads NDJSON line-by-line (one JSON object per line).
 - Uses sha256(raw_line) stored in SQLite table import_seen to skip duplicates.
@@ -19,6 +25,7 @@ Run:
   python3 tools/import_existing_ndjson.py \
     --ndjson app/data/ingest.ndjson \
     --db app/data/rvsstats.sqlite3
+================================================================================
 """
 
 from __future__ import annotations

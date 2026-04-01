@@ -1,8 +1,9 @@
-// stats.js
 /*
 ==============================================================================
 File: app/web/js/stats.js
 Project: RVSDash - Raven Shield Dashboard
+Author: Eric Reinsmidt
+
 Purpose:
 - Read-only stats page behavior.
 - Keeps a familiar UX: dot + "last update" + refresh button.

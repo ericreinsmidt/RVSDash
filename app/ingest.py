@@ -2,18 +2,12 @@
 ==============================================================================
 File: app/ingest.py
 Project: RVSDash - Raven Shield Dashboard
+Author: Eric Reinsmidt
 
 Purpose:
-- Decomposed ingest logic, extracted from main.py.
-- Handles parsing, normalization, SQLite persistence, and NDJSON audit logging
-  for incoming URLPost round-end payloads.
-
-Functions:
-- parse_request_body: Parse raw HTTP body into a dict.
-- normalize_urlpost: Convert flat URLPost dict into structured shape.
-- persist_to_sqlite: Write event + per-player stats to SQLite.
-- append_ndjson: Write a single JSON line to the audit log.
-- build_ingest_record: Assemble the full ingest record from parsed data.
+- Ingest logic for incoming URLPost round-end payloads.
+- Handles parsing, normalization, SQLite persistence, and NDJSON audit logging.
+- Decomposed from main.py for clarity.
 ==============================================================================
 """
 

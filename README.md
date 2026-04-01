@@ -16,7 +16,7 @@ How to use it:
 ==============================================================================
 -->
 
-# RVSDash - Raven Shield Dashboard (Status and Admin)
+# RVSDash - Raven Shield Dashboard
 
 A modern web dashboard for monitoring and administering a **Tom Clancy's Rainbow Six: Raven Shield** (2003) dedicated game server.
 
