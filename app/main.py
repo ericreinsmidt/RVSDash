@@ -1273,8 +1273,9 @@ def api_merge_candidates():
         with _db_ctx() as con:
             candidates = db_detect_merge_candidates(con)
             return {"ok": True, "candidates": candidates}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+    except Exception:
+        logging.exception("Error detecting merge candidates")
+        return {"ok": False, "error": "Internal server error"}
 
 
 @app.post("/api/admin/merge_apply")
@@ -1301,8 +1302,9 @@ async def api_merge_apply(request: Request):
             con.commit()
 
         return {"ok": True, "created": created, "canonical_player_id": canonical_id}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+    except Exception:
+        logging.exception("Error applying merge")
+        return {"ok": False, "error": "Internal server error"}
 
 
 @app.get("/api/admin/aliases")
@@ -1312,8 +1314,9 @@ def api_aliases():
         with _db_ctx() as con:
             aliases = db_get_all_aliases(con)
             return {"ok": True, "aliases": aliases}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+    except Exception:
+        logging.exception("Error listing aliases")
+        return {"ok": False, "error": "Internal server error"}
 
 
 @app.post("/api/admin/merge_remove")
@@ -1335,5 +1338,6 @@ async def api_merge_remove(request: Request):
             con.commit()
 
         return {"ok": True, "removed": removed}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+    except Exception:
+        logging.exception("Error removing merge alias")
+        return {"ok": False, "error": "Internal server error"}
