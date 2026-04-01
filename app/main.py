@@ -768,9 +768,9 @@ def api_stats_last_rounds(server_ident: str = "", limit: int = 5):
                         break
 
             return {"ok": True, "rounds": rounds}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
-
+    except Exception:
+        logging.exception("Error while fetching last rounds")
+        return {"ok": False, "error": "Internal server error while fetching last rounds."}
 
 ##########################################
 # Status/query API
