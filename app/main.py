@@ -210,8 +210,9 @@ async def api_ingest(request: Request):
             append_ndjson(INGEST_LOG_PATH, record)
             return {"ok": sqlite_ok, "logged_to": INGEST_LOG_PATH, "parse_kind": parse_kind}
         return {"ok": sqlite_ok, "logged_to": None, "parse_kind": parse_kind}
-    except Exception as e:
-        return JSONResponse({"ok": False, "error": f"Failed to write log: {e}"}, status_code=500)
+    except Exception:
+        logging.exception("Failed to write ingest NDJSON log")
+        return JSONResponse({"ok": False, "error": "Failed to write log"}, status_code=500)
 
 
 ##########################################
