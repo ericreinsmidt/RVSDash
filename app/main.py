@@ -671,8 +671,9 @@ def api_stats_player_detail(ubi: str = "", server_ident: str = ""):
                 "nicks": nicks,
                 "aliases": aliases,
             }
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+    except Exception:
+        logging.exception("Error while fetching player details")
+        return {"ok": False, "error": "Internal server error while fetching player details."}
 
 
 @app.get("/api/stats/last_rounds")
