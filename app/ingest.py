@@ -26,7 +26,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from urllib.parse import unquote_plus, unquote_to_bytes
 
-from.rvsstats_db import (
+from .rvsstats_db import (
     db_add_player_nick,
     db_auto_resolve_ubi,
     db_get_or_create_player,
@@ -327,6 +327,7 @@ def build_ingest_record(
 
 # ---- SQLite persistence ----
 
+# NOTE: a different _to_int exists in parse.py (returns None instead of 0)
 def _to_int(x: Any) -> int:
     try:
         return int(x)

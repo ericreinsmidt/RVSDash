@@ -4,27 +4,32 @@ File: app/web/css/admin.css
 Purpose: Admin page overrides (loaded after common.css).
 ==============================================================================
 */
-.card +.card{
+
+/* Stack cards vertically with spacing */.card +.card{
   margin-top: 14px;
 }
-.wrap{
+
+/* Constrain admin page width */.wrap{
   max-width: 1000px;
 }
-.forms{
+
+/* Form grid layout */.forms{
   display:grid;
   grid-template-columns: 1fr;
   gap: 12px;
   margin-top: 10px;
   margin-bottom: 14px;
 }
-.rowControls{
+
+/* Inline control row (label + input + button) */.rowControls{
   display:flex;
   gap:10px;
   align-items:center;
   flex-wrap:wrap;
   min-width: 0;
 }
-.mapsCount{
+
+/* Map count label above the maps table */.mapsCount{
   padding: 10px 10px 0;
   font-size: 12px;
   color: var(--muted);
@@ -32,11 +37,16 @@ Purpose: Admin page overrides (loaded after common.css).
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* Select dropdowns */
 select{
   font-size: 12px;
   padding: 6px 10px;
 }
-.kickBtn{
+
+/* ---- Player action buttons ---- */
+
+/* Kick button */.kickBtn{
   padding: 3px 10px;
   border: 1px solid rgba(255, 107, 107, 0.3);
   border-radius: 6px;
@@ -45,19 +55,19 @@ select{
   cursor: pointer;
   font-size: 10px;
   font-weight: 700;
-}
-.kickBtn:hover{
+}.kickBtn:hover{
   background: rgba(255, 107, 107, 0.25);
-}
-.kickBtn:disabled{
+}.kickBtn:disabled{
   opacity: 0.4;
   cursor: not-allowed;
 }
-.playerActions{
+
+/* Player action button container */.playerActions{
   display: flex;
   gap: 6px;
 }
-.banBtn{
+
+/* Ban button */.banBtn{
   padding: 3px 10px;
   border: 1px solid rgba(255, 80, 80, 0.4);
   border-radius: 6px;
@@ -66,15 +76,14 @@ select{
   cursor: pointer;
   font-size: 10px;
   font-weight: 700;
-}
-.banBtn:hover{
+}.banBtn:hover{
   background: rgba(255, 40, 40, 0.3);
-}
-.banBtn:disabled{
+}.banBtn:disabled{
   opacity: 0.4;
   cursor: not-allowed;
 }
-.unbanBtn{
+
+/* Unban button (reserved for future use) */.unbanBtn{
   padding: 3px 10px;
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 6px;
@@ -83,15 +92,198 @@ select{
   cursor: pointer;
   font-size: 10px;
   font-weight: 700;
-}
-.unbanBtn:hover{
+}.unbanBtn:hover{
   background: rgba(255, 255, 255, 0.12);
-}
-.unbanBtn:disabled{
+}.unbanBtn:disabled{
   opacity: 0.4;
   cursor: not-allowed;
 }
+
+/* Scrollable maps table container */
 #mapsTableWrap{
   max-height: 400px;
   overflow-y: auto;
+}
+
+/* ---- Merge candidates UI ---- */
+
+/* Merge group card */.mergeGroup{
+  margin-bottom: 14px;
+  background: var(--card2, rgba(255,255,255,0.08));
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  padding: 14px;
+}.mergeGroup:last-child{
+  margin-bottom: 0;
+}
+
+/* Merge group header row */.mergeGroupHeader{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: baseline;
+  margin-bottom: 10px;
+}
+
+/* Merge group canonical name */.mergeGroupName{
+  font-weight: 800;
+  font-size: 14px;
+  color: rgba(255,255,255,0.92);
+}
+
+/* Merge group metadata (server, canonical info) */.mergeGroupMeta{
+  font-size: 11px;
+  color: rgba(255,255,255,0.5);
+}
+
+/* Merge candidates table */.mergeTable{
+  width: 100%;
+  border-collapse: collapse;
+}.mergeTable th,.mergeTable td{
+  padding: 6px 8px;
+  text-align: left;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  font-size: 11px;
+}.mergeTable th{
+  color: rgba(255,255,255,0.5);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing:.2px;
+  font-size: 10px;
+}.mergeTable tr:hover td{
+  background: rgba(255,255,255,0.03);
+}
+
+/* Merge checkbox */.mergeCheck{
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+/* Merge button row */.mergeBtnWrap{
+  margin-top: 10px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* Merge confirm button */.mergeBtn{
+  padding: 6px 14px;
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 8px;
+  background: rgba(53, 208, 127, 0.15);
+  color: #35d07f;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+}.mergeBtn:hover{
+  background: rgba(53, 208, 127, 0.25);
+}.mergeBtn:disabled{
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Select-all link */.mergeSelectAll{
+  font-size: 11px;
+  color: var(--link, #8ab4ff);
+  cursor: pointer;
+  border: none;
+  background: none;
+  padding: 0;
+  text-decoration: underline;
+}
+
+/* Merge status message */.mergeStatus{
+  font-size: 11px;
+  margin-left: 8px;
+}.mergeStatusOk{
+  color: #35d07f;
+}.mergeStatusErr{
+  color: #ff6b6b;
+}
+
+/* ---- Alias list UI ---- */
+
+/* Alias row (from → to) */.aliasRow{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  font-size: 12px;
+}.aliasRow:last-child{
+  border-bottom: none;
+}
+
+/* Alias UBI identifier */.aliasUbi{
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 11px;
+}
+
+/* Arrow between alias and canonical */.aliasArrow{
+  color: rgba(255,255,255,0.35);
+  font-size: 11px;
+}
+
+/* Remove alias button */.aliasRemoveBtn{
+  padding: 3px 10px;
+  border: 1px solid rgba(255,107,107,0.3);
+  border-radius: 6px;
+  background: rgba(255,107,107,0.1);
+  color: #ff6b6b;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 700;
+  margin-left: auto;
+}.aliasRemoveBtn:hover{
+  background: rgba(255,107,107,0.2);
+}
+
+
+/* ---- Boolean option toggles ---- */
+
+/* On/Off toggle buttons */.boolToggleBtn{
+  padding: 3px 12px;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 6px;
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.7);
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 700;
+}.boolToggleBtn:hover{
+  background: rgba(255,255,255,0.12);
+}
+
+/* Current value indicators */.boolOn{
+  color: #35d07f;
+  font-weight: 700;
+}.boolOff{
+  color: #ff6b6b;
+  font-weight: 700;
+}.boolUnknown{
+  color: rgba(255,255,255,0.35);
+  font-weight: 700;
+}
+
+
+/* ---- Accordion sections ---- */.accordion{
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  overflow: hidden;
+}.accordion summary{
+  padding: 10px 14px;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 13px;
+  color: rgba(255,255,255,0.75);
+  background: rgba(255,255,255,0.03);
+  user-select: none;
+}.accordion summary:hover{
+  background: rgba(255,255,255,0.06);
+}.accordion[open] summary{
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}.accordion >.forms,.accordion >.small{
+  padding: 8px 14px;
 }

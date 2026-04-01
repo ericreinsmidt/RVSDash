@@ -35,14 +35,18 @@ A modern web dashboard for monitoring and administering a **Tom Clancy's Rainbow
 - Game mode friendly names
 
 ### Admin Page (`/admin`)
-- **Live Players** — auto-refreshing player list with kick and ban buttons
-- **Messenger** — set the three auto-messenger text lines, toggle messenger on/off
-- **Server Commands** — say (chat as admin), set MOTD, set max players, set/disable game password
-- **Server Control** — restart round, restart match, restart server
-- **Server Settings** — set round time, set difficulty level (changes require restart match)
-- **Map Management** — load/save map lists, go to map, add/remove maps from rotation, fetch available maps with game modes
-- **Player Merge** — detect and merge fragmented guest accounts (e.g. `Player_XXXXXXXX` variants)
-- **Ban List** — fetch and view the server's ban list (GUIDs and IPs)
+- **Live Players** - auto-refreshing player list with kick and ban buttons
+- **Messenger** - set the three auto-messenger text lines, toggle messenger on/off
+- **Server Commands** - say (chat as admin), set server name, set MOTD, set max players, set/disable game password
+- **Server Control** - restart round, restart match, restart server, toggle messenger
+- **Server Settings** (accordion sections, changes require restart match):
+  - *Game Rules* - round time, difficulty, rounds per match, bomb time, between-round time, terrorist count
+  - *Chat & Voting* - spam threshold, chat lock duration, vote broadcast max frequency
+  - *Server Options* - toggle friendly fire, auto team balance, radar, team names, team killer penalty, map rotation, AI backup, force first person weapon
+  - *Camera Options* - toggle first person, third person, free third person, ghost, fade to black, team only
+- **Map Management** — load/save map lists, go to map, add/remove maps from rotation, clear rotation (bulk remove), fetch available maps with game modes
+- **Player Merge** - detect and merge fragmented guest accounts (e.g. `Player_XXXXXXXX` variants)
+- **Ban List** - fetch and view the server's ban list (GUIDs and IPs)
 
 ### Data Pipeline
 - The game server pushes round data to RVSDash via the URLPost mod after each round
@@ -81,17 +85,21 @@ RVSDash/
 │       │
 │       ├── css/
 │       │   ├── common.css
+│       │   ├── landing.css
 │       │   ├── status.css
 │       │   ├── stats.css
-│       │   ├── admin.css
-│       │   └── player.css
+│       │   └── admin.css
 │       │
-│       └── js/
-│           ├── common.js
-│           ├── status.js
-│           ├── stats.js
-│           ├── admin.js
-│           └── player.js
+│       ├── js/
+│       │   ├── common.js
+│       │   ├── landing.js
+│       │   ├── status.js
+│       │   ├── stats.js
+│       │   ├── admin.js
+│       │   └── player.js
+│       │
+│       └── img/
+│           └── paper.jpg
 │
 └── tools/
     └── import_existing_ndjson.py
@@ -147,8 +155,8 @@ Both machines need to be able to reach each other on the respective ports. If a 
 
      | Setting | Description |
      |---------|-------------|
-     | `postHost` | The IP address or hostname of the machine running RVSDash. This is where the game server will send round data after each round. Do not include `http://` — just the bare IP or hostname. |
-     | `postURL` | Must be `/api/ingest` — this is the RVSDash endpoint that receives round data. Do not change this. |
+     | `postHost` | The IP address or hostname of the machine running RVSDash. This is where the game server will send round data after each round. Do not include `http://` - just the bare IP or hostname. |
+     | `postURL` | Must be `/api/ingest` - this is the RVSDash endpoint that receives round data. Do not change this. |
      | `postPort` | The port RVSDash is listening on (default `2003`). Must match the `--port` value used when starting RVSDash. If RVSDash is behind a reverse proxy, use the proxy's port instead (e.g. `80` or `443`). |
      | `postIdent` | A unique identifier for this game server. Used to distinguish data if you run multiple servers pointing at the same RVSDash instance. Can be any short string (e.g. `myserver1`). |
 
@@ -162,7 +170,7 @@ Both machines need to be able to reach each other on the respective ports. If a 
          ServerActors=N4Admin.UdpBeaconEx
          ServerActors=urlPost.urlPost
 
-     > **Note:** The base `RavenShield.ini` may still have `ServerActors=IpDrv.UdpBeacon` in its `[Engine.GameEngine]` section. That's fine — the mod file overrides it. Just make sure the mod file has the line commented out and the N4Admin replacement added.
+     > **Note:** The base `RavenShield.ini` may still have `ServerActors=IpDrv.UdpBeacon` in its `[Engine.GameEngine]` section. That's fine - the mod file overrides it. Just make sure the mod file has the line commented out and the N4Admin replacement added.
 
    * In the same section, add N4IDMod for player identification:
 
@@ -214,7 +222,7 @@ Both machines need to be able to reach each other on the respective ports. If a 
 
    > Use `0.0.0.0` instead of `127.0.0.1` if you want the dashboard accessible from other machines on the network.
 
-   > **Tip:** Add `--reload` during development to auto-restart on file changes. Do not use `--reload` in production.
+   > **Tip:** Add `--reload` if updating to auto-restart on file changes (e.g. when customizing for site branding via `config.py`).
 
    Alternatively, you can create a `run.sh` script:
 
@@ -241,10 +249,10 @@ Both machines need to be able to reach each other on the respective ports. If a 
 
 **You are responsible for securing access.** Options include:
 
-- **Cloudflare Access** — protect the `/admin` path with identity-aware access control (recommended if using Cloudflare)
-- **Authelia** or **Authentik** — self-hosted identity-aware proxy
-- **Reverse proxy with IP allowlisting** — restrict `/admin` to specific IPs via nginx/Caddy
-- **VPN** — only expose the dashboard on a VPN network
+- **Cloudflare Access** - protect the `/admin` path with identity-aware access control (recommended if using Cloudflare)
+- **Authelia** or **Authentik** - self-hosted identity-aware proxy
+- **Reverse proxy with IP allowlisting** - restrict `/admin` to specific IPs via nginx/Caddy
+- **VPN** - only expose the dashboard on a VPN network
 - HTTP basic auth (functional but not recommended as a sole measure)
 
 The status, stats, player, and landing pages are read-only and safe to expose publicly.
@@ -279,7 +287,7 @@ python3 tools/import_existing_ndjson.py \
   --db app/data/rvsstats.sqlite3
 ```
 
-The import tool is safe to re-run — it tracks which lines have already been imported and skips duplicates. Fragmented guest accounts (`Player_XXXXXXXX` variants) are automatically detected and merged during import, matching the behavior of the live ingest pipeline. However, any manual merge aliases created via the admin page are stored only in the database and will need to be re-created after a rebuild.
+The import tool is safe to re-run - it tracks which lines have already been imported and skips duplicates. Fragmented guest accounts (`Player_XXXXXXXX` variants) are automatically detected and merged during import, matching the behavior of the live ingest pipeline. However, any manual merge aliases created via the admin page are stored only in the database and will need to be re-created after a rebuild.
 
 ## Troubleshooting
 
@@ -290,11 +298,11 @@ The import tool is safe to re-run — it tracks which lines have already been im
 | Stats page is empty | Verify URLPost is configured correctly and the game server can reach RVSDash via HTTP on the configured `postPort`. At least one round must complete before stats appear. |
 | Fragmented guest accounts | Players connecting without a Ubi account get names like `Player_XXXXXXXX`. Use the Player Merge feature on the admin page to combine these under the canonical account. |
 | Admin page accessible to everyone | RVSDash has no built-in auth. See the [Security](#security) section for options to restrict access. |
-| Changes to round time / difficulty not taking effect | These settings require a **Restart Match** from the Server Control section to apply. |
+| Changes to server settings not taking effect | Settings in the Server Settings section (round time, difficulty, rounds per match, bomb time, between-round time, terrorist count, boolean toggles, camera options) require a **Restart Match** from the Server Control section to apply. |
 | Database corrupted or lost | Rebuild from the NDJSON audit log. See [Rebuilding the Database from NDJSON](#rebuilding-the-database-from-ndjson). |
 
 ## License and Notice
 
 All code is licensed under **MIT** except:
-- `N4Admin.u`, `URLPost.u` — © 2004 Neil Popplewell, covered under their respective licenses
-- `N4IDMod.utx` — © 2020 [Dateranoth](https://github.com/Dateranoth/RainbowSix-Ravenshield-N4Admin/releases), covered under its respective license
+- `N4Admin.u`, `URLPost.u` - © 2004 Neil Popplewell, covered under their respective licenses
+- `N4IDMod.utx` - © 2020 [Dateranoth](https://github.com/Dateranoth/RainbowSix-Ravenshield-N4Admin/releases), covered under its respective license

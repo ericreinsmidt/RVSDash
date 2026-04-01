@@ -104,6 +104,9 @@ function showToast(message, type, durationMs){
 
   Options:
     confirmModal(title, message, { danger: true, confirmText: 'Ban', cancelText: 'Nevermind' })
+
+  Note: title and message accept trusted HTML (e.g. <b>, <br>).
+  Callers must escapeHtml() any user-derived content before passing it in.
   ============================================================================
 */
 
@@ -132,7 +135,14 @@ function confirmModal(title, message, opts = {}){
     // Trigger transition
     requestAnimationFrame(() => overlay.classList.add('active'));
 
+    // Escape key to cancel
+    function onKey(e){
+      if (e.key === 'Escape') close(false);
+    }
+    document.addEventListener('keydown', onKey);
+
     function close(result){
+      document.removeEventListener('keydown', onKey);
       overlay.classList.remove('active');
       setTimeout(() => overlay.remove(), 150);
       resolve(result);
@@ -149,14 +159,5 @@ function confirmModal(title, message, opts = {}){
     overlay.addEventListener('click', (e) => {
       if (e.target === overlay) close(false);
     });
-
-    // Escape key to cancel
-    function onKey(e){
-      if (e.key === 'Escape'){
-        document.removeEventListener('keydown', onKey);
-        close(false);
-      }
-    }
-    document.addEventListener('keydown', onKey);
   });
 }

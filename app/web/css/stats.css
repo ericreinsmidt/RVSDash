@@ -5,25 +5,59 @@ Purpose: Stats page overrides (loaded after common.css).
 ==============================================================================
 */
 
+/* Allow columns to size based on content */
 table{
   min-width: 980px;
   table-layout: auto;
 }
 
+/* Prevent line wrapping in table cells by default */
 th, td{
   white-space: nowrap;
 }
 
+/* Opt specific columns back into wrapping */
 td.wrap, th.wrap{
   white-space: normal;
 }
 
+/* Remove card-like styling from details elements inside cards */
 .card > details{
   background: transparent;
   border: none;
   padding: 0;
 }
 
+/* ---- Sortable column headers ---- */
+
+/* Clickable sort header */
+.sortTh{
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.sortTh:hover{
+  color: rgba(255,255,255,0.85);
+}
+
+/* Active sort column highlight */
+.sortActive{
+  color: #8ab4ff;
+}
+
+/* Stats filter input */
+#serverIdent{
+  width: min(420px, 80vw);
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(0,0,0,0.25);
+  color: rgba(255,255,255,0.92);
+}
+
 /* Desktop grid layout */
-@media (min-width: 1000px){.card.intro{ grid-column: span 7; }.card.tools{ grid-column: span 5; }.card.raw{ grid-column: span 12; }
+@media (min-width: 1000px) {
+  .card.intro { grid-column: span 7; }
+  .card.tools { grid-column: span 5; }
+  .card.raw   { grid-column: span 12; }
 }

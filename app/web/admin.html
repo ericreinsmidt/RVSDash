@@ -57,8 +57,8 @@
         </div>
       </div>
     </div>
-    
-        <div class="card">
+
+    <div class="card">
       <h2>Server Commands</h2>
 
       <div class="forms">
@@ -71,6 +71,17 @@
           <div class="rowControls">
             <input id="sayText" type="text" maxlength="120" placeholder="Hello everyone" />
             <button id="btnSay">Send</button>
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <div class="small"><b>Set Server Name</b></div>
+            <div class="small">Display name (&le; 30 chars)</div>
+          </div>
+          <div class="rowControls">
+            <input id="serverName" type="text" maxlength="30" placeholder="My RVS Server" />
+            <button id="btnSetServerName">Send</button>
           </div>
         </div>
 
@@ -158,40 +169,148 @@
       </div>
     </div>
 
-    <div class="card">
+        <div class="card">
       <h2>Server Settings</h2>
       <div class="small" style="margin-bottom:8px; color: orange;">
         <b>Changes below <span style="color: red;">REQUIRE</span> a Restart Match to take effect.</b>
       </div>
 
-      <div class="forms">
+      <details class="accordion" open>
+        <summary>Game Rules</summary>
+        <div class="forms">
 
-        <div class="row">
-          <div>
-            <div class="small"><b>Set Round Time</b></div>
-            <div class="small">Seconds (60–3600)</div>
+          <div class="row">
+            <div>
+              <div class="small"><b>Set Round Time</b></div>
+              <div class="small">Seconds (60–3600)</div>
+            </div>
+            <div class="rowControls">
+              <input id="rtSeconds" type="number" min="60" max="3600" step="1" value="300" />
+              <button id="btnSetRT">Send</button>
+            </div>
           </div>
-          <div class="rowControls">
-            <input id="rtSeconds" type="number" min="60" max="3600" step="1" value="300" />
-            <button id="btnSetRT">Send</button>
+
+          <div class="row">
+            <div>
+              <div class="small"><b>Set Difficulty</b></div>
+            </div>
+            <div class="rowControls">
+              <select id="diffLevel">
+                <option value="1">1 (Recruit)</option>
+                <option value="2" selected>2 (Veteran)</option>
+                <option value="3">3 (Elite)</option>
+              </select>
+              <button id="btnSetDiff">Send</button>
+            </div>
           </div>
+
+          <div class="row">
+            <div>
+              <div class="small"><b>Rounds Per Match</b></div>
+              <div class="small">1–20</div>
+            </div>
+            <div class="rowControls">
+              <input id="roundsPerMatch" type="number" min="1" max="20" step="1" value="10" />
+              <button id="btnSetRoundsPerMatch">Send</button>
+            </div>
+          </div>
+
+          <div class="row">
+            <div>
+              <div class="small"><b>Bomb Time</b></div>
+              <div class="small">Seconds (30–60)</div>
+            </div>
+            <div class="rowControls">
+              <input id="bombTime" type="number" min="30" max="60" step="1" value="45" />
+              <button id="btnSetBombTime">Send</button>
+            </div>
+          </div>
+
+          <div class="row">
+            <div>
+              <div class="small"><b>Between Round Time</b></div>
+              <div class="small">Seconds (0–99)</div>
+            </div>
+            <div class="rowControls">
+              <input id="betweenRoundTime" type="number" min="0" max="99" step="1" value="10" />
+              <button id="btnSetBetweenRoundTime">Send</button>
+            </div>
+          </div>
+
+          <div class="row">
+            <div>
+              <div class="small"><b>Terrorist Count</b></div>
+              <div class="small">5–40 (co-op modes)</div>
+            </div>
+            <div class="rowControls">
+              <input id="terrorCount" type="number" min="5" max="40" step="1" value="20" />
+              <button id="btnSetTerrorCount">Send</button>
+            </div>
+          </div>
+
         </div>
+      </details>
 
-        <div class="row">
-          <div>
-            <div class="small"><b>Set Difficulty</b></div>
+      <details class="accordion">
+        <summary>Chat &amp; Voting</summary>
+        <div class="forms">
+
+          <div class="row">
+            <div>
+              <div class="small"><b>Spam Threshold</b></div>
+              <div class="small">0–999 (0 = disabled)</div>
+            </div>
+            <div class="rowControls">
+              <input id="spamThreshold" type="number" min="0" max="999" step="1" value="0" />
+              <button id="btnSetSpamThreshold">Send</button>
+            </div>
           </div>
-          <div class="rowControls">
-            <select id="diffLevel">
-              <option value="1">1 (Recruit)</option>
-              <option value="2" selected>2 (Veteran)</option>
-              <option value="3">3 (Elite)</option>
-            </select>
-            <button id="btnSetDiff">Send</button>
+
+          <div class="row">
+            <div>
+              <div class="small"><b>Chat Lock Duration</b></div>
+              <div class="small">0–999 (0 = disabled)</div>
+            </div>
+            <div class="rowControls">
+              <input id="chatLockDuration" type="number" min="0" max="999" step="1" value="0" />
+              <button id="btnSetChatLockDuration">Send</button>
+            </div>
           </div>
+
+          <div class="row">
+            <div>
+              <div class="small"><b>Vote Broadcast Frequency</b></div>
+              <div class="small">0–999 (0 = disabled)</div>
+            </div>
+            <div class="rowControls">
+              <input id="voteBroadcastFreq" type="number" min="0" max="999" step="1" value="0" />
+              <button id="btnSetVoteBroadcastFreq">Send</button>
+            </div>
+          </div>
+
         </div>
+      </details>
 
-      </div>
+      <details class="accordion">
+        <summary>Server Options (toggles)</summary>
+        <div class="small" style="margin:8px 0;">
+          Toggle boolean server options. Current values are read from the server on page load.
+        </div>
+        <div id="boolOptionsWrap" class="forms">
+          <!-- Populated by JS -->
+        </div>
+      </details>
+
+      <details class="accordion">
+        <summary>Camera Options</summary>
+        <div class="small" style="margin:8px 0;">
+          Spectator camera settings.
+        </div>
+        <div id="camOptionsWrap" class="forms">
+          <!-- Populated by JS -->
+        </div>
+      </details>
+
     </div>
 
     <div class="card">
@@ -245,6 +364,18 @@
 
         <div class="row">
           <div>
+            <div class="small"><b>Clear Rotation</b></div>
+            <div class="small">Remove all maps except #1</div>
+          </div>
+          <div class="rowControls">
+            <input id="clearRotationCount" type="number" min="2" max="32" step="1" value="2" />
+            <span class="small" style="opacity:0.5;">maps in rotation</span>
+            <button id="btnClearRotation">Clear</button>
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
             <div class="small"><b>Add Map</b></div>
             <div class="small">Insert a map into the rotation</div>
           </div>
@@ -270,8 +401,8 @@
         </div>
       </div>
 
-      <details id="mapsDetails" open style="margin-top:12px;">
-        <summary id="mapsSummary">Map list (click to hide)</summary>
+      <details id="mapsDetails" class="accordion" style="margin-top:12px;">
+        <summary id="mapsSummary">Map list</summary>
         <div id="mapsTableWrap" class="tableClip" style="margin-top:12px;"></div>
       </details>
     </div>

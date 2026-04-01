@@ -30,16 +30,16 @@ Operational notes:
 # The default Raven Shield game server IP that the dashboards will query/control.
 # This value is injected into the HTML pages via the __DEFAULT_TARGET__ placeholder
 # replacement in app/main.py, so the operator can confirm what the backend is using.
-DEFAULT_SERVER_IP = "123.123.123.123"
+DEFAULT_SERVER_IP = "172.93.104.79"
 
 # The UDP port on the Raven Shield server that responds to REPORTEXT queries and
 # accepts ADMIN commands (as configured on your game server).
-DEFAULT_SERVER_PORT = 8777
+DEFAULT_SERVER_PORT = 8877
 
 # The server_ident string used by the URLPost ingest system.
 # This must match the "ident" field sent by the game server's URLPost config.
 # Used by the status page to fetch recent round history.
-DEFAULT_SERVER_IDENT = "YOUR_UNIQUE_SERVER_IDENT"
+DEFAULT_SERVER_IDENT = "obsolete_superstars"
 
 # ------------------------------------------------------------------------------
 # Site branding
@@ -72,7 +72,7 @@ NAV_LINKS = [
 # Footer HTML content (shared across all pages).
 # This is injected raw — HTML entities are fine.
 # This MUST REMAIN UNALTERED on any installation as written.
-FOOTER_HTML = '&copy; 2026 <a href="https://obsoletesuperstars.com">geekstrada</a> &amp; <a href="https://dateranoth.com">Dateranoth</a>. Uses N4Admin &amp; URLPost &copy; 2004 Neil Popplewell.'
+FOOTER_HTML = '&copy; 2026 <a href="https://obsoletesuperstars.com">geekstrada</a>. Uses N4Admin &amp; URLPost &copy; 2004 Neil Popplewell. Uses N4IDMod &copy; 2020 <a href="https://dateranoth.com">Dateranoth</a>.'
 
 # ------------------------------------------------------------------------------
 # UDP settings (query + admin)

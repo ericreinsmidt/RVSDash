@@ -1,17 +1,30 @@
 """
-SQLite persistence for RVSDash ingest stats.
+================================================================================
+File: app/rvsstats_db.py
+Project: RVSDash - Raven Shield Dashboard (Status and Admin)
+Author: Eric Reinsmidt
 
-Design goals:
+What this file does (high-level):
+- SQLite persistence for RVSDash ingest stats.
 - Simple deployment: one SQLite file (no server).
 - Mirror legacy PHP behavior:
   - create/find player by (server_ident, ubi)
   - record nicks
   - upsert per-(player, map, mode) accumulated stats and increment rounds
+
+Why this file exists:
+- Provides a single module for all database operations so the rest of the
+  codebase never touches SQLite directly.
+================================================================================
 """
 
 from __future__ import annotations
 
+import hashlib
+import json
+import re
 import sqlite3
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -24,10 +37,6 @@ def db_init(db_path: Path) -> None:
         con.execute("PRAGMA synchronous=NORMAL;")
         con.execute("PRAGMA foreign_keys=ON;")
 
-        ###################################
-        #       TEMP
-        ###################################
-
         # Idempotent import support:
         # Stores sha256 hashes of imported NDJSON lines so re-runs skip duplicates.
         con.execute(
@@ -39,10 +48,6 @@ def db_init(db_path: Path) -> None:
             );
             """
         )
-
-        ###################################
-        #       TEMP
-        ###################################
 
         con.execute(
             """
@@ -127,7 +132,6 @@ def db_init(db_path: Path) -> None:
 
 
 def db_insert_ingest_event(con: sqlite3.Connection, event: Dict[str, Any]) -> int:
-    import json
 
     ts = str(event.get("ts", ""))
     server_ident = str(event.get("server_ident", "") or "")
@@ -152,8 +156,6 @@ def db_record_seen_hash(con: sqlite3.Connection, raw_line: bytes) -> bool:
       True  -> this line hash was newly recorded (process it)
       False -> already seen (skip it)
     """
-    import hashlib
-    from datetime import datetime, timezone
 
     b = raw_line or b""
     h = hashlib.sha256(b).hexdigest()
@@ -291,7 +293,6 @@ def db_add_player_alias(
     - Cannot alias a player that is already a canonical for other aliases
       (would create chains). Caller should resolve first.
     """
-    from datetime import datetime, timezone
 
     canonical_player_id = int(canonical_player_id)
     alias_player_id = int(alias_player_id)
@@ -380,7 +381,6 @@ def db_detect_merge_candidates(con: sqlite3.Connection) -> List[Dict[str, Any]]:
       },...
     ]
     """
-    import re
 
     # Pattern: base name, underscore, exactly 8 alphanumeric chars at end
     suffix_re = re.compile(r"^(.+)_([A-Za-z0-9]{8})$")
@@ -470,8 +470,6 @@ def db_auto_resolve_ubi(con: sqlite3.Connection, server_ident: str, ubi: str) ->
 
     Excludes generic names (JOHNDOE).
     """
-    import re
-    from datetime import datetime, timezone
 
     suffix_re = re.compile(r"^(.+)_([A-Za-z0-9]{8})$")
 

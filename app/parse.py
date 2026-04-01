@@ -76,6 +76,7 @@ def _split_float_list(s: Optional[str]) -> List[Optional[float]]:
     return out
 
 
+# NOTE: a different _to_int exists in ingest.py (defaults to 0 instead of None)
 def _to_int(x: Optional[str]) -> Optional[int]:
     """
     Convert a KV string to int safely.

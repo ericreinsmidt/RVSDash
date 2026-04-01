@@ -1,4 +1,3 @@
-// admin.js
 /*
 ==============================================================================
 File: app/web/js/admin.js
@@ -45,9 +44,31 @@ const sayText = document.getElementById('sayText');
 const btnSetDiff = document.getElementById('btnSetDiff');
 const diffLevel = document.getElementById('diffLevel');
 
-function escapeHtml(s){
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\\\"/g, '&quot;').replace(/'/g, '&#039;');
-}
+const btnSetServerName = document.getElementById('btnSetServerName');
+const serverName = document.getElementById('serverName');
+
+const btnSetRoundsPerMatch = document.getElementById('btnSetRoundsPerMatch');
+const roundsPerMatch = document.getElementById('roundsPerMatch');
+
+const btnSetBombTime = document.getElementById('btnSetBombTime');
+const bombTime = document.getElementById('bombTime');
+
+const btnSetBetweenRoundTime = document.getElementById('btnSetBetweenRoundTime');
+const betweenRoundTime = document.getElementById('betweenRoundTime');
+
+const btnSetTerrorCount = document.getElementById('btnSetTerrorCount');
+const terrorCount = document.getElementById('terrorCount');
+
+const btnSetSpamThreshold = document.getElementById('btnSetSpamThreshold');
+const spamThreshold = document.getElementById('spamThreshold');
+
+const btnSetChatLockDuration = document.getElementById('btnSetChatLockDuration');
+const chatLockDuration = document.getElementById('chatLockDuration');
+
+const btnSetVoteBroadcastFreq = document.getElementById('btnSetVoteBroadcastFreq');
+const voteBroadcastFreq = document.getElementById('voteBroadcastFreq');
+
+const boolOptionsWrap = document.getElementById('boolOptionsWrap');
 
 async function postJson(url, body){
   if (cmdOut){
@@ -109,6 +130,38 @@ btnSay?.addEventListener('click', () => {
 btnSetDiff?.addEventListener('click', () => {
   const lvl = Number(diffLevel?.value ?? 0);
   postJson('/api/admin/set_diff_level', { level: lvl });
+});
+
+btnSetServerName?.addEventListener('click', () => {
+  postJson('/api/admin/set_server_name', { name: (serverName?.value || '') });
+});
+
+btnSetRoundsPerMatch?.addEventListener('click', () => {
+  postJson('/api/admin/set_rounds_per_match', { rounds: Number(roundsPerMatch.value) });
+});
+
+btnSetBombTime?.addEventListener('click', () => {
+  postJson('/api/admin/set_bomb_time', { seconds: Number(bombTime.value) });
+});
+
+btnSetBetweenRoundTime?.addEventListener('click', () => {
+  postJson('/api/admin/set_between_round_time', { seconds: Number(betweenRoundTime.value) });
+});
+
+btnSetTerrorCount?.addEventListener('click', () => {
+  postJson('/api/admin/set_terror_count', { count: Number(terrorCount.value) });
+});
+
+btnSetSpamThreshold?.addEventListener('click', () => {
+  postJson('/api/admin/set_spam_threshold', { value: Number(spamThreshold.value) });
+});
+
+btnSetChatLockDuration?.addEventListener('click', () => {
+  postJson('/api/admin/set_chat_lock_duration', { value: Number(chatLockDuration.value) });
+});
+
+btnSetVoteBroadcastFreq?.addEventListener('click', () => {
+  postJson('/api/admin/set_vote_broadcast_freq', { value: Number(voteBroadcastFreq.value) });
 });
 
 // Optional status check from admin page (useful for deployments)
@@ -271,6 +324,22 @@ document.getElementById('btnRemoveMap')?.addEventListener('click', async () => {
   postJson('/api/admin/remove_map', { index: val });
 });
 
+// Clear rotation (remove maps 2 through N)
+document.getElementById('btnClearRotation')?.addEventListener('click', async () => {
+  const count = parseInt(document.getElementById('clearRotationCount')?.value, 10);
+  if (isNaN(count) || count < 2) {
+    showToast('Enter the total number of maps in rotation (at least 2)', 'err');
+    return;
+  }
+  const ok = await confirmModal(
+    'Clear Map Rotation?',
+    `This will remove <b>${count - 1}</b> map(s), leaving only map #1 in the rotation.`,
+    { danger: true, confirmText: 'Clear Rotation' }
+  );
+  if (!ok) return;
+  postJson('/api/admin/clear_rotation', { count });
+});
+
 // Add map — populate mode dropdown when map is selected
 document.getElementById('addMapName')?.addEventListener('change', () => {
   const mapSelect = document.getElementById('addMapName');
@@ -322,12 +391,12 @@ function sendMessText(slot){
   const input = document.getElementById(`messtext${slot}`);
   if (!input) return;
   const text = input.value;
-  postJson('/api/admin/messtext', { slot, text });
+  return postJson('/api/admin/messtext', { slot, text });
 }
 
-function sendAllMessText(){
+async function sendAllMessText(){
   for (let i = 0; i < 3; i++){
-    sendMessText(i);
+    await sendMessText(i);
   }
 }
 
@@ -429,6 +498,93 @@ async function refreshAdminPlayers(){
 
 /*
   ============================================================================
+  Boolean Server Options
+  ============================================================================
+*/
+
+const BOOL_OPTIONS = [
+  { option: 'FriendlyFire',       label: 'Friendly Fire' },
+  { option: 'Autobalance',        label: 'Auto Team Balance' },
+  { option: 'AllowRadar',         label: 'Allow Radar' },
+  { option: 'ShowNames',          label: 'Show Team Names' },
+  { option: 'TeamKillerPenalty',  label: 'Team Killer Penalty' },
+  { option: 'RotateMap',          label: 'Rotate Map' },
+  { option: 'AIBkp',              label: 'AI Backup' },
+  { option: 'ForceFPersonWeapon', label: 'Force First Person Weapon' },
+];
+
+const CAM_OPTIONS = [
+  { option: 'CamFirstPerson',     label: 'First Person' },
+  { option: 'CamThirdPerson',     label: 'Third Person' },
+  { option: 'CamFreeThirdP',      label: 'Free Third Person' },
+  { option: 'CamGhost',           label: 'Ghost' },
+  { option: 'CamFadeToBlack',     label: 'Fade to Black' },
+  { option: 'CamTeamOnly',        label: 'Team Only' },
+];
+
+const camOptionsWrap = document.getElementById('camOptionsWrap');
+
+function renderOptionToggles(container, options, serverKv){
+  if (!container) return;
+
+  const KV_TO_OPTION = {
+    Y1: 'FriendlyFire',
+    Z1: 'Autobalance',
+    B2: 'AllowRadar',
+    W1: 'ShowNames',
+    A2: 'TeamKillerPenalty',
+    J2: 'RotateMap',
+    I2: 'AIBkp',
+    K2: 'ForceFPersonWeapon',
+    C1: 'CamFirstPerson',
+    C3: 'CamThirdPerson',
+    CP: 'CamFreeThirdP',
+    CG: 'CamGhost',
+    CF: 'CamFadeToBlack',
+    CT: 'CamTeamOnly',
+  };
+
+  const currentValues = {};
+  if (serverKv){
+    for (const [kvKey, optName] of Object.entries(KV_TO_OPTION)){
+      const raw = serverKv[kvKey];
+      if (raw !== undefined){
+        currentValues[optName] = (String(raw) === '1');
+      }
+    }
+  }
+
+  let html = '';
+  for (const { option, label } of options){
+    const current = currentValues[option];
+    const statusText = current === true ? 'ON' : current === false ? 'OFF' : '?';
+    const statusClass = current === true ? 'boolOn' : current === false ? 'boolOff' : 'boolUnknown';
+
+    html += `<div class="row">`;
+    html += `<div>`;
+    html += `<div class="small"><b>${escapeHtml(label)}</b></div>`;
+    html += `<div class="small">Current: <span class="${statusClass}">${statusText}</span></div>`;
+    html += `</div>`;
+    html += `<div class="rowControls">`;
+    html += `<button class="boolToggleBtn" data-option="${escapeHtml(option)}" data-set="true">On</button>`;
+    html += `<button class="boolToggleBtn" data-option="${escapeHtml(option)}" data-set="false">Off</button>`;
+    html += `</div>`;
+    html += `</div>`;
+  }
+
+  container.innerHTML = html;
+
+  container.querySelectorAll('.boolToggleBtn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const option = btn.getAttribute('data-option');
+      const value = btn.getAttribute('data-set') === 'true';
+      postJson('/api/admin/set_server_option_bool', { option, value });
+    });
+  });
+}
+
+/*
+  ============================================================================
   Player Merge UI
   ============================================================================
 */
@@ -437,113 +593,6 @@ const candidatesWrap = document.getElementById('candidatesWrap');
 const aliasesWrap = document.getElementById('aliasesWrap');
 const btnFetchCandidates = document.getElementById('btnFetchCandidates');
 const btnFetchAliases = document.getElementById('btnFetchAliases');
-
-function ensureMergeStyles(){
-  if (document.getElementById('mergeStyles')) return;
-  const style = document.createElement('style');
-  style.id = 'mergeStyles';
-  style.textContent = `.mergeGroup{
-      margin-bottom: 14px;
-      background: var(--card2, rgba(255,255,255,0.08));
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 12px;
-      padding: 14px;
-    }.mergeGroup:last-child{
-      margin-bottom: 0;
-    }.mergeGroupHeader{
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px 16px;
-      align-items: baseline;
-      margin-bottom: 10px;
-    }.mergeGroupName{
-      font-weight: 800;
-      font-size: 14px;
-      color: rgba(255,255,255,0.92);
-    }.mergeGroupMeta{
-      font-size: 11px;
-      color: rgba(255,255,255,0.5);
-    }.mergeTable{
-      width: 100%;
-      border-collapse: collapse;
-    }.mergeTable th,.mergeTable td{
-      padding: 6px 8px;
-      text-align: left;
-      border-bottom: 1px solid rgba(255,255,255,0.06);
-      font-size: 11px;
-    }.mergeTable th{
-      color: rgba(255,255,255,0.5);
-      font-weight: 800;
-      text-transform: uppercase;
-      letter-spacing:.2px;
-      font-size: 10px;
-    }.mergeTable tr:hover td{
-      background: rgba(255,255,255,0.03);
-    }.mergeCheck{
-      width: 16px;
-      height: 16px;
-      cursor: pointer;
-    }.mergeBtnWrap{
-      margin-top: 10px;
-      display: flex;
-      gap: 8px;
-      align-items: center;
-    }.mergeBtn{
-      padding: 6px 14px;
-      border: 1px solid rgba(255,255,255,0.15);
-      border-radius: 8px;
-      background: rgba(53, 208, 127, 0.15);
-      color: #35d07f;
-      cursor: pointer;
-      font-size: 11px;
-      font-weight: 700;
-    }.mergeBtn:hover{
-      background: rgba(53, 208, 127, 0.25);
-    }.mergeBtn:disabled{
-      opacity: 0.4;
-      cursor: not-allowed;
-    }.mergeSelectAll{
-      font-size: 11px;
-      color: var(--link, #8ab4ff);
-      cursor: pointer;
-      border: none;
-      background: none;
-      padding: 0;
-      text-decoration: underline;
-    }.mergeStatus{
-      font-size: 11px;
-      margin-left: 8px;
-    }.mergeStatusOk{ color: #35d07f; }.mergeStatusErr{ color: #ff6b6b; }.aliasRow{
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 6px 0;
-      border-bottom: 1px solid rgba(255,255,255,0.06);
-      font-size: 12px;
-    }.aliasRow:last-child{
-      border-bottom: none;
-    }.aliasUbi{
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-      font-size: 11px;
-    }.aliasArrow{
-      color: rgba(255,255,255,0.35);
-      font-size: 11px;
-    }.aliasRemoveBtn{
-      padding: 3px 10px;
-      border: 1px solid rgba(255,107,107,0.3);
-      border-radius: 6px;
-      background: rgba(255,107,107,0.1);
-      color: #ff6b6b;
-      cursor: pointer;
-      font-size: 10px;
-      font-weight: 700;
-      margin-left: auto;
-    }.aliasRemoveBtn:hover{
-      background: rgba(255,107,107,0.2);
-    }
-  `;
-  document.head.appendChild(style);
-}
 
 async function fetchCandidates(){
   if (!candidatesWrap) return;
@@ -563,8 +612,6 @@ async function fetchCandidates(){
       candidatesWrap.innerHTML = `<div class="small">No merge candidates detected. All accounts look clean.</div>`;
       return;
     }
-
-    ensureMergeStyles();
 
     let html = '';
     for (let gi = 0; gi < candidates.length; gi++){
@@ -706,8 +753,6 @@ async function fetchAliases(){
       return;
     }
 
-    ensureMergeStyles();
-
     let html = '';
     for (const a of aliases){
       const aliasUbi = a.alias_ubi || a.alias_player_id || '?';
@@ -833,3 +878,18 @@ btnFetchAliases?.addEventListener('click', fetchAliases);
 // Initial fetch + auto-refresh every 5 seconds
 refreshAdminPlayers();
 setInterval(refreshAdminPlayers, 5000);
+
+// Fetch server KV data to populate boolean option current values
+async function initBoolOptions(){
+  try{
+    const r = await fetch('/api/query', { cache: 'no-store' });
+    const data = await r.json();
+    const kv = data.ok ? (data.kv || {}) : null;
+    renderOptionToggles(boolOptionsWrap, BOOL_OPTIONS, kv);
+    renderOptionToggles(camOptionsWrap, CAM_OPTIONS, kv);
+  } catch(e){
+    renderOptionToggles(boolOptionsWrap, BOOL_OPTIONS, null);
+    renderOptionToggles(camOptionsWrap, CAM_OPTIONS, null);
+  }
+}
+initBoolOptions();

@@ -26,7 +26,7 @@ import socket
 import time
 from typing import List, Tuple
 
-from.config import (
+from .config import (
     UDP_TIMEOUT_S,
     UDP_RETRIES,
     DRAIN_MAX_S,

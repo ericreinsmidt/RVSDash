@@ -1,4 +1,3 @@
-# admincommands.py
 """
 ==============================================================================
 File: app/admincommands.py
@@ -298,7 +297,7 @@ def cmd_messtext(slot: int, text: str) -> bytes:
 
 def cmd_set_rt(seconds: int) -> bytes:
     """
-    Construct a allowlisted command to set RoundTime.
+    Construct an allowlisted command to set RoundTime.
     """
     seconds = validate_rt_seconds(seconds)
     return build_admin_payload(f"SETSERVEROPTION RoundTime {seconds}")
@@ -306,7 +305,7 @@ def cmd_set_rt(seconds: int) -> bytes:
 
 def cmd_set_motd(text: str) -> bytes:
     """
-    Construct a allowlisted command to set MOTD.
+    Construct an allowlisted command to set MOTD.
 
     Args:
         text (str): Desired MOTD.
@@ -323,7 +322,7 @@ def cmd_set_motd(text: str) -> bytes:
 
 def cmd_load_ini(inifile: str) -> bytes:
     """
-    Construct a allowlisted command to load an INI.
+    Construct an allowlisted command to load an INI.
 
     Args:
         inifile: INI base name (no ".ini").
@@ -344,7 +343,7 @@ def cmd_load_ini(inifile: str) -> bytes:
 
 def cmd_say(msg: str) -> bytes:
     """
-    Construct a allowlisted SAY command.
+    Construct an allowlisted SAY command.
 
     """
     msg = validate_say_message(msg)
@@ -353,7 +352,7 @@ def cmd_say(msg: str) -> bytes:
 
 def cmd_restart() -> bytes:
     """
-    Construct a allowlisted RESTART command.
+    Construct an allowlisted RESTART command.
 
     """
     return build_admin_payload("RESTART")
@@ -362,7 +361,7 @@ def cmd_restart() -> bytes:
 # Set difficulty SETSERVEROPTION DiffLevel <n>
 def cmd_set_diff_level(level: int) -> bytes:
     """
-    Construct a allowlisted command to set server difficulty.
+    Construct an allowlisted command to set server difficulty.
 
     """
     level = validate_diff_level(level)
@@ -414,3 +413,254 @@ def cmd_remove_ban(ban_value: str) -> bytes:
     """
     ban_value = validate_ban_id(ban_value)
     return build_admin_payload(f"REMOVEBAN {ban_value}")
+
+
+
+# ============================================================================
+# Server Name
+# ============================================================================
+
+def validate_server_name(name: str) -> str:
+    """
+    Validate a server name.
+
+    UI expectation:
+    - 1-30 characters, no control characters.
+    """
+    if not isinstance(name, str):
+        raise ValueError("name must be a string")
+    name = name.strip()
+    if len(name) == 0:
+        raise ValueError("Server name is required")
+    if len(name) > 30:
+        raise ValueError("Server name must be <= 30 chars")
+    if any(ord(c) < 32 for c in name):
+        raise ValueError("Server name contains invalid characters")
+    return name
+
+
+def cmd_set_server_name(name: str) -> bytes:
+    """Construct an allowlisted command to set the server name."""
+    name = validate_server_name(name)
+    return build_admin_payload(f"SETSERVEROPTION ServerName {name}")
+
+
+# ============================================================================
+# Rounds Per Match
+# ============================================================================
+
+def validate_rounds_per_match(rounds: int) -> int:
+    """
+    Validate rounds per match.
+
+    UI expectation:
+    - 1-20 rounds (matches legacy PHP validation).
+    """
+    if not isinstance(rounds, int):
+        raise ValueError("rounds must be an integer")
+    if rounds < 1 or rounds > 20:
+        raise ValueError("rounds must be in range 1..20")
+    return rounds
+
+
+def cmd_set_rounds_per_match(rounds: int) -> bytes:
+    """Construct an allowlisted command to set rounds per match."""
+    rounds = validate_rounds_per_match(rounds)
+    return build_admin_payload(f"SETSERVEROPTION RoundsPerMatch {rounds}")
+
+
+# ============================================================================
+# Bomb Time
+# ============================================================================
+
+def validate_bomb_time(seconds: int) -> int:
+    """
+    Validate bomb time.
+
+    UI expectation:
+    - 30-60 seconds (matches legacy PHP validation).
+    """
+    if not isinstance(seconds, int):
+        raise ValueError("seconds must be an integer")
+    if seconds < 30 or seconds > 60:
+        raise ValueError("bomb time must be in range 30..60")
+    return seconds
+
+
+def cmd_set_bomb_time(seconds: int) -> bytes:
+    """Construct an allowlisted command to set bomb time."""
+    seconds = validate_bomb_time(seconds)
+    return build_admin_payload(f"SETSERVEROPTION BombTime {seconds}")
+
+
+# ============================================================================
+# Between Round Time
+# ============================================================================
+
+def validate_between_round_time(seconds: int) -> int:
+    """
+    Validate between-round time.
+
+    UI expectation:
+    - 0-99 seconds (matches legacy PHP validation).
+    """
+    if not isinstance(seconds, int):
+        raise ValueError("seconds must be an integer")
+    if seconds < 0 or seconds > 99:
+        raise ValueError("between-round time must be in range 0..99")
+    return seconds
+
+
+def cmd_set_between_round_time(seconds: int) -> bytes:
+    """Construct an allowlisted command to set between-round time."""
+    seconds = validate_between_round_time(seconds)
+    return build_admin_payload(f"SETSERVEROPTION BetweenRoundTime {seconds}")
+
+
+# ============================================================================
+# Terror Count (NbTerro)
+# ============================================================================
+
+def validate_terror_count(count: int) -> int:
+    """
+    Validate terrorist count for co-op modes.
+
+    UI expectation:
+    - 5-40 terrorists (matches legacy PHP validation).
+    """
+    if not isinstance(count, int):
+        raise ValueError("count must be an integer")
+    if count < 5 or count > 40:
+        raise ValueError("terror count must be in range 5..40")
+    return count
+
+
+def cmd_set_terror_count(count: int) -> bytes:
+    """Construct an allowlisted command to set terrorist count."""
+    count = validate_terror_count(count)
+    return build_admin_payload(f"SETSERVEROPTION NbTerro {count}")
+
+
+# ============================================================================
+# Spam Threshold
+# ============================================================================
+
+def validate_spam_threshold(value: int) -> int:
+    """
+    Validate spam threshold.
+
+    UI expectation:
+    - 0-999 (reasonable range; 0 = disabled).
+    """
+    if not isinstance(value, int):
+        raise ValueError("value must be an integer")
+    if value < 0 or value > 999:
+        raise ValueError("spam threshold must be in range 0..999")
+    return value
+
+
+def cmd_set_spam_threshold(value: int) -> bytes:
+    """Construct an allowlisted command to set spam threshold."""
+    value = validate_spam_threshold(value)
+    return build_admin_payload(f"SETSERVEROPTION SpamThreshold {value}")
+
+
+# ============================================================================
+# Chat Lock Duration
+# ============================================================================
+
+def validate_chat_lock_duration(value: int) -> int:
+    """
+    Validate chat lock duration.
+
+    UI expectation:
+    - 0-999 (reasonable range; 0 = disabled).
+    """
+    if not isinstance(value, int):
+        raise ValueError("value must be an integer")
+    if value < 0 or value > 999:
+        raise ValueError("chat lock duration must be in range 0..999")
+    return value
+
+
+def cmd_set_chat_lock_duration(value: int) -> bytes:
+    """Construct an allowlisted command to set chat lock duration."""
+    value = validate_chat_lock_duration(value)
+    return build_admin_payload(f"SETSERVEROPTION ChatLockDuration {value}")
+
+
+# ============================================================================
+# Vote Broadcast Max Frequency
+# ============================================================================
+
+def validate_vote_broadcast_freq(value: int) -> int:
+    """
+    Validate vote broadcast max frequency.
+
+    UI expectation:
+    - 0-999 (reasonable range; 0 = disabled).
+    """
+    if not isinstance(value, int):
+        raise ValueError("value must be an integer")
+    if value < 0 or value > 999:
+        raise ValueError("vote broadcast frequency must be in range 0..999")
+    return value
+
+
+def cmd_set_vote_broadcast_freq(value: int) -> bytes:
+    """Construct an allowlisted command to set vote broadcast max frequency."""
+    value = validate_vote_broadcast_freq(value)
+    return build_admin_payload(f"SETSERVEROPTION VoteBroadcastMaxFrequency {value}")
+
+
+# ============================================================================
+# Boolean Server Options (toggle True/False)
+# ============================================================================
+
+# Allowlisted boolean option names — only these can be toggled.
+BOOL_OPTIONS = frozenset({
+    "CamFirstPerson",
+    "CamThirdPerson",
+    "CamFreeThirdP",
+    "CamGhost",
+    "CamFadeToBlack",
+    "CamTeamOnly",
+    "ForceFPersonWeapon",
+    "FriendlyFire",
+    "RotateMap",
+    "Autobalance",
+    "AllowRadar",
+    "AIBkp",
+    "TeamKillerPenalty",
+    "ShowNames",
+})
+
+
+def validate_bool_option(option: str) -> str:
+    """
+    Validate a boolean server option name against the allowlist.
+
+    Raises ValueError if the option is not recognized.
+    """
+    if not isinstance(option, str):
+        raise ValueError("option must be a string")
+    option = option.strip()
+    if option not in BOOL_OPTIONS:
+        raise ValueError(f"Unknown or disallowed option: {option}")
+    return option
+
+
+def cmd_set_server_option_bool(option: str, value: bool) -> bytes:
+    """
+    Construct an allowlisted command to set a boolean server option.
+
+    Args:
+        option: One of the allowlisted BOOL_OPTIONS names.
+        value:  True or False.
+
+    Returns:
+        bytes: Fully formed UDP payload to send.
+    """
+    option = validate_bool_option(option)
+    val_str = "True" if value else "False"
+    return build_admin_payload(f"SETSERVEROPTION {option} {val_str}")

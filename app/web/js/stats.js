@@ -12,8 +12,6 @@ Purpose:
 ==============================================================================
 */
 
-console.log('stats.js loaded');
-
 const statsStatus = document.getElementById('statsStatus');
 const dot = document.getElementById('dot');
 const lastUpdate = document.getElementById('lastUpdate');
@@ -56,6 +54,7 @@ tickClocks();
   Column header display names.
   Keys not listed here display as-is.
 */
+// NOTE: COL_LABEL_MAP also defined in player.js — keep in sync
 const COL_LABEL_MAP = {
   server_ident: 'Server',
   ubi: 'Player',
@@ -68,34 +67,6 @@ const COL_LABEL_MAP = {
   map: 'Map',
   game_mode: 'Game Mode',
 };
-
-/*
-  Inject styles for player links and sortable headers — once.
-*/
-function ensureStatsStyles(){
-  if (document.getElementById('statsExtraStyles')) return;
-  const style = document.createElement('style');
-  style.id = 'statsExtraStyles';
-  style.textContent = `.playerLink{
-      color: #8ab4ff;
-      cursor: pointer;
-      text-decoration: none;
-      border-bottom: 1px dotted rgba(138,180,255,0.4);
-    }.playerLink:hover{
-      color: #b8d4ff;
-      border-bottom-color: rgba(138,180,255,0.7);
-    }.sortTh{
-      cursor: pointer;
-      user-select: none;
-      -webkit-user-select: none;
-    }.sortTh:hover{
-      color: rgba(255,255,255,0.85);
-    }.sortActive{
-      color: #8ab4ff;
-    }
-  `;
-  document.head.appendChild(style);
-}
 
 async function refresh(){
   if (statsStatus) statsStatus.textContent = 'Loading…';
@@ -149,6 +120,7 @@ async function refresh(){
   }
 }
 
+// NOTE: renderTable also defined in player.js — keep in sync
 function renderTable(wrap, cols, rows){
   if (!wrap) return;
   if (!rows || rows.length === 0){
@@ -214,8 +186,6 @@ function renderPlayersTable(wrap, rows, currentServerIdent){
     return;
   }
 
-  ensureStatsStyles();
-
   const cols = ['ubi','kills','deaths','fired','hits','rounds_played','score'];
   const numCols = ['kills','deaths','fired','hits','rounds_played','score'];
 
@@ -268,6 +238,7 @@ function renderPlayersTable(wrap, rows, currentServerIdent){
 }
 
 refreshBtn?.addEventListener('click', refresh);
+serverIdent?.addEventListener('keydown', (e) => { if (e.key === 'Enter') refresh(); });
 
 // Auto-load once
 refresh();

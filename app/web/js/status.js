@@ -27,184 +27,8 @@ const lastRoundsWrap = document.getElementById('lastRoundsWrap');
   Explicit mapping tables (fast path)
   ============================================================================
 */
-const WEAPON_NAME_MAP = {
-  "R6Description.R6DescPrimaryWeaponNone": 'Billy Badass (none)',
-  BuckShotgunM1: 'M1 Shotgun (shot)',
-  BuckShotgunSPAS12: 'SPAS-12 Shotgun (shot)',
-  BuckShotgunUSAS12: 'USAS-12 Shotgun (shot)',
-  CMagAssaultAK47: 'AK-47 Assault Rifle',
-  CMagAssaultAK74: 'AK-74 Assault Rifle',
-  CMagAssaultAUG: 'AUG Assault Rifle',
-  CMagAssaultFAL: 'FAL Assault Rifle',
-  CMagAssaultFAMASG2: 'FAMAS G2 Assault Rifle',
-  CMagAssaultFNC: 'FNC Assault Rifle',
-  CMagAssaultG36K: 'G36K Assault Rifle',
-  CMagAssaultG3A3: 'G3A3 Assault Rifle',
-  CMagAssaultGalilARM: 'Galil ARM Assault Rifle',
-  CMagAssaultL85A1: 'L85A1 Assault Rifle',
-  CMagAssaultM14: 'M14 Assault Rifle',
-  CMagAssaultM16A2: 'M16A2 Assault Rifle',
-  CMagAssaultM4: 'M4 Assault Rifle',
-  CMagAssaultM82: 'M82 Assault Rifle',
-  CMagAssaultTAR21: 'TAR21 Assault Rifle',
-  CMagAssaultType97: 'Type 97 Rifle',
-  CMagPistol92FS: '92FS Pistol',
-  CMagPistolAPArmy: 'AP Army Pistol',
-  CMagPistolCZ61: 'CZ61 Pistol',
-  CMagPistolDesertEagle357: 'Desert Eagle.357 Pistol',
-  CMagPistolDesertEagle50: 'Desert Eagle.50 Pistol',
-  CMagPistolMac119: 'Mac 119 Pistol',
-  CMagPistolMicroUzi: 'Micro Uzi Pistol',
-  CMagPistolMk23: 'Mk 23 Pistol',
-  CMagPistolP228: 'P228 Pistol',
-  CMagPistolSR2: 'SR2 Pistol',
-  CMagPistolUSP: 'USP Pistol',
-  CMagSubCZ61: 'CZ61 SMG',
-  CMagSubM12S: 'M12 S SMG',
-  CMagSubMac119: 'Mac 119 SMG',
-  CMagSubMicroUzi: 'Micro Uzi SMG',
-  CMagSubMP510A2: 'MP5 10A2 SMG',
-  CMagSubMP5A4: 'MP4 A4 SMG',
-  CMagSubMP5KPDW: 'MP5 KPDW SMG',
-  CMagSubMP5SD5: 'MP5SD5  SMG',
-  CMagSubMTAR21: 'MTAR21 SMG',
-  CMagSubSR2: 'SR2 SMG',
-  CMagSubTMP: 'TMP SMG',
-  CMagSubUMP: 'UMP SMG',
-  CMagSubUzi: 'Uzi SMG',
-  NormalAssaultAK47: 'AK-47 Assault Rifle',
-  NormalAssaultAK74: 'AK-74 Assault Rifle',
-  NormalAssaultAUG: 'AUG Assault Rifle',
-  NormalAssaultFAL: 'FAL Assault Rifle',
-  NormalAssaultFAMASG2: 'FAMAS G2 Assault Rifle',
-  NormalAssaultFNC: 'FNC Assault Rifle',
-  NormalAssaultG36K: 'G36K Assault Rifle',
-  NormalAssaultG3A3: 'G3A3 Assault Rifle',
-  NormalAssaultGalilARM: 'Galil ARM Assault Rifle',
-  NormalAssaultL85A1: 'L85A1 Assault Rifle',
-  NormalAssaultM14: 'M14 Assault Rifle',
-  NormalAssaultM16A2: 'M16A2 Assault Rifle',
-  NormalAssaultM4: 'M4 Assault Rifle',
-  NormalAssaultM82: 'M82 Assault Rifle',
-  NormalAssaultTAR21: 'TAR21 Assault Rifle',
-  NormalAssaultType97: 'Type 97 Rifle',
-  NormalLMG21E: '21E LMG',
-  NormalLMG23E: '23E LMG',
-  NormalLMGM249: 'M249 LMG',
-  NormalLMGM60E4: '60E4 LMG',
-  NormalLMGRPD: 'RPD LMG',
-  NormalPistol92FS: '92FS Pistol',
-  NormalPistolAPArmy: 'AP Army Pistol',
-  NormalPistolCZ61: 'CZ61 Pistol',
-  NormalPistolDesertEagle357: 'Desert Eagle.357 Pistol',
-  NormalPistolDesertEagle50: 'Desert Eagle.50 Pistol',
-  NormalPistolMac119: 'Mac 119 Pistol',
-  NormalPistolMicroUzi: 'Micro Uzi Pistol',
-  NormalPistolMk23: 'Mk 23 Pistol',
-  NormalPistolP228: 'P228 Pistol',
-  NormalPistolSPP: 'SPP Pistol',
-  NormalPistolSR2: 'SR2 Pistol',
-  NormalPistolUSP: 'USP Pistol',
-  NormalSniperDragunov: 'Dragunov Sniper Rifle',
-  NormalSniperM82A1: 'M82A1 Sniper Rifle',
-  NormalSniperPSG1: ' PSG1 Sniper Rifle',
-  NormalSniperSSG3000: 'SSG3000 Sniper Rifle',
-  NormalSniperWA2000: 'WA2000 Sniper Rifle',
-  NormalSubCZ61: 'CZ61 SMG',
-  NormalSubM12S: 'M12 S SMG',
-  NormalSubMac119: 'Mac 119 SMG',
-  NormalSubMicroUzi: 'Micro Uzi SMG',
-  NormalSubMP510A2: 'MP5 10A2 SMG',
-  NormalSubMP5A4: 'MP4 A4 SMG',
-  NormalSubMP5KPDW: 'MP5 KPDW SMG',
-  NormalSubMTAR21: 'MTAR21 SMG',
-  NormalSubP90: 'P90 SMG',
-  NormalSubSR2: 'SR2 SMG',
-  NormalSubTMP: 'TMP SMG',
-  NormalSubUMP: 'UMP SMG',
-  NormalSubUzi: 'Uzi SMG',
-  SilencedAssaultAK47: 'AK-47 Assault Rifle',
-  SilencedAssaultAK74: 'AK-74 Assault Rifle',
-  SilencedAssaultAUG: 'AUG Assault Rifle',
-  SilencedAssaultFAL: 'FAL Assault Rifle',
-  SilencedAssaultFAMASG2: 'FAMAS G2 Assault Rifle',
-  SilencedAssaultFNC: 'FNC Assault Rifle',
-  SilencedAssaultG36K: 'G36K Assault Rifle',
-  SilencedAssaultG3A3: 'G3A3 Assault Rifle',
-  SilencedAssaultGalilARM: 'Galil ARM Assault Rifle',
-  SilencedAssaultL85A1: 'L85A1 Assault Rifle',
-  SilencedAssaultM14: 'M14 Assault Rifle',
-  SilencedAssaultM16A2: 'M16A2 Assault Rifle',
-  SilencedAssaultM4: 'M4 Assault Rifle',
-  SilencedAssaultM82: 'M82 Assault Rifle',
-  SilencedAssaultTAR21: 'TAR21 Assault Rifle',
-  SilencedAssaultType97: 'Type 97 Rifle',
-  SilencedPistol92FS: '92FS Pistol',
-  SilencedPistolAPArmy: 'AP Army Pistol',
-  SilencedPistolDesertEagle357: 'Desert Eagle.357 Pistol',
-  SilencedPistolDesertEagle50: 'Desert Eagle.50 Pistol',
-  SilencedPistolMk23: 'Mk 23 Pistol',
-  SilencedPistolP228: 'P228 Pistol',
-  SilencedPistolSPP: 'SPP Pistol',
-  SilencedPistolUSP: 'USP Pistol',
-  SilencedSniperAWCovert: 'AW Covert Sniper Rifle',
-  SilencedSniperDragunov: 'Dragunov Sniper Rifle',
-  SilencedSniperM82A1: 'M82A1 Sniper Rifle',
-  SilencedSniperPSG1: ' PSG1 Sniper Rifle',
-  SilencedSniperSSG3000: 'SSG3000 Sniper Rifle',
-  SilencedSniperVSSVintorez: 'VSS Vintorez Sniper Rifle',
-  SilencedSniperWA2000: 'WA2000 Sniper Rifle',
-  SilencedSubCZ61: 'CZ61 SMG',
-  SilencedSubM12S: 'M12 S SMG',
-  SilencedSubMac119: 'Mac 119 SMG',
-  SilencedSubMicroUzi: 'Micro Uzi SMG',
-  SilencedSubMP510A2: 'MP5 10A2 SMG',
-  SilencedSubMP5A4: 'MP5 A4 SMG',
-  SilencedSubMP5KPDW: 'MP5 KPDW SMG',
-  SilencedSubMP5SD5: 'MP5SD5 SMG',
-  SilencedSubMTAR21: 'MTAR SMG',
-  SilencedSubP90: 'P90 SMG',
-  SilencedSubSR2: 'SR2 SMG',
-  SilencedSubTMP: 'TMP SMG',
-  SilencedSubUMP: 'UMP SMG',
-  SilencedSubUzi: 'Uzi SMG',
-  SlugShotgunM1: 'M1 Shotgun (slug)',
-  SlugShotgunSPAS12: 'SPAS-12 Shotgun (slug)',
-  SlugShotgunUSAS12: 'USAS-12 Shotgun (slug)'
-};
-
-const GADGET_NAME_MAP = {
-  R63rdCMAG556mm: '5.56mm Extended Mag',
-  R63rdCMAG762mm: '7.62mm Extended Mag',
-  R63rdCMAG9mmMP5: '9mm Extended Mag',
-  R63rdCMAG9mmUMP: '9mm Extended Mag',
-  R63rdDrumMAGAK: 'AK Extended Mag',
-  R63rdMAG9mmHigh: '9mm Extended Mag',
-  R63rdMAGCZ61High: 'CZ61 Extended Mag',
-  R63rdMAGPistolHigh: 'Pistol Extended Mag',
-  R6MiniScopeGadget: 'Mini Scope',
-  R6SilencerGadget: 'Suppressor',
-  R6ThermalScopeGadget: 'Thermal Scope',
-};
-
-const SERVER_LABEL_MAP = {
-  server_name: 'Server Name',
-  map: 'Current Map',
-  game_mode: 'Game Mode',
-  version: 'Version',
-  players: 'Players',
-  messenger: 'Messenger',
-  motd: 'MotD',
-  difficulty: 'Difficulty',
-};
-
-const DIFF_LABEL_MAP = {
-  1: 'Recruit',
-  2: 'Veteran',
-  3: 'Elite',
-};
-
-const WEAPON_INFO_MAP = {
+const WEAPON_MAP = {
+  "R6Description.R6DescPrimaryWeaponNone": {label: 'Billy Badass (none)'},
   BuckShotgunM1: {label: 'M1 Shotgun (shot)', url: 'https://en.wikipedia.org/wiki/Benelli_M1'},
   BuckShotgunSPAS12: {label: 'SPAS-12 Shotgun (shot)', url: 'https://en.wikipedia.org/wiki/Franchi_SPAS-12'},
   BuckShotgunUSAS12: {label: 'USAS-12 Shotgun (shot)', url: 'https://en.wikipedia.org/wiki/Daewoo_Precision_Industries_USAS-12'},
@@ -349,6 +173,37 @@ const WEAPON_INFO_MAP = {
   SlugShotgunUSAS12: {label: 'USAS-12 Shotgun (slug)', url: 'https://en.wikipedia.org/wiki/Daewoo_Precision_Industries_USAS-12'},
 };
 
+const GADGET_NAME_MAP = {
+  R63rdCMAG556mm: '5.56mm Extended Mag',
+  R63rdCMAG762mm: '7.62mm Extended Mag',
+  R63rdCMAG9mmMP5: '9mm Extended Mag',
+  R63rdCMAG9mmUMP: '9mm Extended Mag',
+  R63rdDrumMAGAK: 'AK Extended Mag',
+  R63rdMAG9mmHigh: '9mm Extended Mag',
+  R63rdMAGCZ61High: 'CZ61 Extended Mag',
+  R63rdMAGPistolHigh: 'Pistol Extended Mag',
+  R6MiniScopeGadget: 'Mini Scope',
+  R6SilencerGadget: 'Suppressor',
+  R6ThermalScopeGadget: 'Thermal Scope',
+};
+
+const SERVER_LABEL_MAP = {
+  server_name: 'Server Name',
+  map: 'Current Map',
+  game_mode: 'Game Mode',
+  version: 'Version',
+  players: 'Players',
+  messenger: 'Messenger',
+  motd: 'MotD',
+  difficulty: 'Difficulty',
+};
+
+const DIFF_LABEL_MAP = {
+  1: 'Recruit',
+  2: 'Veteran',
+  3: 'Elite',
+};
+
 /*
   ============================================================================
   Helper functions
@@ -372,7 +227,9 @@ function humanizeRvsId(raw){
 function weaponName(raw){
   const id = normId(raw);
   if (!id) return '';
-  return WEAPON_NAME_MAP[id] || humanizeRvsId(id);
+  const entry = WEAPON_MAP[id];
+  if (entry) return entry.label;
+  return humanizeRvsId(id);
 }
 
 function gadgetName(raw){
@@ -397,10 +254,10 @@ function isAllowedWeaponUrl(url){
 function renderWeaponHtml(rawWeaponId){
   const id = (rawWeaponId ?? '').toString().trim();
   if (!id) return escapeHtml('(none)');
-  const info = WEAPON_INFO_MAP[id];
-  if (!info) return escapeHtml(weaponName(id));
-  const label = (info.label ?? id).toString();
-  const url = (info.url ?? '').toString();
+  const entry = WEAPON_MAP[id];
+  if (!entry) return escapeHtml(humanizeRvsId(id));
+  const label = (entry.label ?? id).toString();
+  const url = (entry.url ?? '').toString();
   if (!isAllowedWeaponUrl(url)) return escapeHtml(label);
   return `<a href="${escapeHtml(url)}" class="wikiLink" target="_blank" rel="noopener noreferrer">${escapeHtml(label)}</a>`;
 }
@@ -425,72 +282,11 @@ function mapRow(mapName, isCurrent){
   return div;
 }
 
-function ensureCurrentMapStyles(){
-  if (document.getElementById('currentMapStyles')) return;
-  const style = document.createElement('style');
-  style.id = 'currentMapStyles';
-  style.textContent = `.currentMap{
-      font-weight: 800;
-      color: #35d07f;
-      text-shadow: 0 0 10px rgba(53, 208, 127, 0.20);
-    }
-  `;
-  document.head.appendChild(style);
-}
-
 /*
   ============================================================================
   Last Rounds rendering
   ============================================================================
 */
-
-function ensureLastRoundsStyles(){
-  if (document.getElementById('lastRoundsStyles')) return;
-  const style = document.createElement('style');
-  style.id = 'lastRoundsStyles';
-  style.textContent = `.roundBlock{
-      margin-bottom: 14px;
-      background: var(--card2, rgba(255,255,255,0.08));
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 12px;
-      padding: 12px;
-    }.roundBlock:last-child{
-      margin-bottom: 0;
-    }.roundHeader{
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px 16px;
-      align-items: baseline;
-      margin-bottom: 10px;
-    }.roundMeta{
-      font-size: 11px;
-      color: rgba(255,255,255,0.55);
-    }.roundMeta b{
-      color: rgba(255,255,255,0.85);
-    }.roundTable{
-      width: 100%;
-      border-collapse: collapse;
-    }.roundTable th,.roundTable td{
-      padding: 6px 8px;
-      text-align: left;
-      border-bottom: 1px solid rgba(255,255,255,0.06);
-      font-size: 11px;
-    }.roundTable th{
-      color: rgba(255,255,255,0.5);
-      font-weight: 800;
-      text-transform: uppercase;
-      letter-spacing:.2px;
-      font-size: 10px;
-    }.roundTable tr:hover td{
-      background: rgba(255,255,255,0.03);
-    }.roundAge{
-      color: #8ab4ff;
-      font-weight: 700;
-      font-size: 12px;
-    }
-  `;
-  document.head.appendChild(style);
-}
 
 function fmtRoundTime(seconds){
   if (seconds == null || !Number.isFinite(seconds)) return '—';
@@ -549,8 +345,6 @@ async function fetchLastRounds(){
       lastRoundsWrap.innerHTML = `<div class="small">No rounds recorded yet.</div>`;
       return;
     }
-
-    ensureLastRoundsStyles();
 
     let html = '';
     for (const round of rounds){
@@ -615,86 +409,7 @@ async function fetchLastRounds(){
   ============================================================================
 */
 
-function ensureLoadoutStyles(){
-  if (document.getElementById('loadoutPopupStyles')) return;
-  const style = document.createElement('style');
-  style.id = 'loadoutPopupStyles';
-  style.textContent = `.loadoutLink{
-      color: var(--link, #8ab4ff);
-      cursor: pointer;
-      font-weight: 800;
-      text-transform: uppercase;
-      font-size: 11px;
-      letter-spacing:.2px;
-      user-select: none;
-      -webkit-user-select: none;
-      border: none;
-      background: none;
-      padding: 0;
-    }.loadoutLink:hover{
-      color: #b8d4ff;
-    }.loadoutOverlay{
-      position: fixed;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0,0,0,0.5);
-      z-index: 9998;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }.loadoutPopup{
-      background: #141c2b;
-      border: 1px solid rgba(255,255,255,0.15);
-      border-radius: 14px;
-      padding: 20px 24px;
-      min-width: 300px;
-      max-width: 480px;
-      z-index: 9999;
-      color: rgba(255,255,255,0.92);
-      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
-    }.loadoutPopup h3{
-      margin: 0 0 14px 0;
-      font-size: 15px;
-      font-weight: 700;
-      color: rgba(255,255,255,0.95);
-    }.loadoutPopupGrid{
-      display: grid;
-      grid-template-columns: 110px 1fr;
-      gap: 8px 12px;
-      align-items: baseline;
-    }.loadoutPopupK{
-      color: rgba(255,255,255,0.55);
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing:.2px;
-      font-weight: 800;
-    }.loadoutPopupV{
-      font-size: 12px;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    }.loadoutPopupV a.wikiLink{
-      color: var(--link, #8ab4ff);
-      text-decoration: none;
-    }.loadoutPopupV a.wikiLink:hover{
-      text-decoration: underline;
-    }.loadoutClose{
-      display: inline-block;
-      margin-top: 14px;
-      padding: 6px 16px;
-      border: 1px solid rgba(255,255,255,0.15);
-      border-radius: 10px;
-      background: rgba(255,255,255,0.05);
-      color: rgba(255,255,255,0.85);
-      cursor: pointer;
-      font-size: 12px;
-    }.loadoutClose:hover{
-      background: rgba(255,255,255,0.1);
-    }
-  `;
-  document.head.appendChild(style);
-}
-
 function showLoadoutPopup(playerName, p){
-  ensureLoadoutStyles();
-
   const pwV = renderWeaponHtml(p?.primary_weapon);
   const swV = renderWeaponHtml(p?.secondary_weapon);
   const pg = gadgetName(p?.primary_gadget);
@@ -719,21 +434,26 @@ function showLoadoutPopup(playerName, p){
 
   document.body.appendChild(overlay);
 
+  function closePopup(){
+    document.removeEventListener('keydown', escHandler);
+    overlay.remove();
+  }
+
+  // Close on Escape
+  function escHandler(e){
+    if (e.key === 'Escape') closePopup();
+  }
+  document.addEventListener('keydown', escHandler);
+
   // Close on overlay click (outside popup)
   overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) overlay.remove();
+    if (e.target === overlay) closePopup();
   });
 
   // Close on button click
   overlay.querySelector('.loadoutClose').addEventListener('click', () => {
-    overlay.remove();
+    closePopup();
   });
-
-  // Close on Escape
-  const escHandler = (e) => {
-    if (e.key === 'Escape'){ overlay.remove(); document.removeEventListener('keydown', escHandler); }
-  };
-  document.addEventListener('keydown', escHandler);
 }
 
 /*
@@ -749,8 +469,6 @@ function renderPlayers(players){
     playersWrap.innerHTML = `<div class="small">No players.</div>`;
     return;
   }
-
-  ensureLoadoutStyles();
 
   const cols = [
     ["name","Name"],
@@ -821,8 +539,6 @@ async function refresh(){
   inflight = true;
 
   try{
-    ensureCurrentMapStyles();
-
     const r = await fetch('/api/query', { cache: 'no-store' });
     const data = await r.json();
 

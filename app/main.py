@@ -45,7 +45,7 @@ from pydantic import BaseModel, Field
 # Local app imports
 ##########################################
 
-from.config import (
+from .config import (
     DEFAULT_SERVER_IP,
     DEFAULT_SERVER_PORT,
     DEFAULT_SERVER_IDENT,
@@ -56,7 +56,7 @@ from.config import (
 )
 
 # UDP transport logic: query server status and send admin commands.
-from.udp import (
+from .udp import (
     udp_query_reportext,
     udp_query_availablemaps,
     udp_query_banlist,
@@ -64,7 +64,7 @@ from.udp import (
 )
 
 # Parsing logic: convert raw UDP datagrams into KV pairs and structured output.
-from.parse import (
+from .parse import (
     parse_kv_from_datagrams,
     build_structured_response,
     parse_availablemaps_from_datagrams,
@@ -92,10 +92,19 @@ from .admincommands import (
     cmd_change_map,
     cmd_add_map,
     cmd_remove_map,
+    cmd_set_server_name,
+    cmd_set_rounds_per_match,
+    cmd_set_bomb_time,
+    cmd_set_between_round_time,
+    cmd_set_terror_count,
+    cmd_set_spam_threshold,
+    cmd_set_chat_lock_duration,
+    cmd_set_vote_broadcast_freq,
+    cmd_set_server_option_bool,
 )
 
 # SQLite persistence helpers for stats storage.
-from.rvsstats_db import (
+from .rvsstats_db import (
     db_init,
     db_detect_merge_candidates,
     db_add_player_alias,
@@ -104,7 +113,7 @@ from.rvsstats_db import (
 )
 
 # Decomposed ingest logic.
-from.ingest import (
+from .ingest import (
     parse_request_body,
     build_ingest_record,
     persist_to_sqlite,
@@ -847,6 +856,9 @@ class AddMapBody(BaseModel):
 class RemoveMapBody(BaseModel):
     index: int = Field(..., description="Map rotation index to remove (1-based)")
 
+class ClearRotationBody(BaseModel):
+    count: int = Field(..., description="Total maps in rotation (keeps map #1, removes 2..count)")
+
 class MessTextBody(BaseModel):
     slot: int = Field(..., description="Messenger line (0, 1, or 2)")
     text: str = Field(..., description="Messenger text (<= 100 chars)")
@@ -863,21 +875,45 @@ class KickUbiBody(BaseModel):
 class SetRTBody(BaseModel):
     seconds: int = Field(..., description="Round time seconds (60..3600)")
 
-
 class SetMOTDBody(BaseModel):
     motd: str = Field(..., description="MOTD text (<= 30 chars)")
-
 
 class LoadINIBody(BaseModel):
     inifile: str = Field(..., description="INI base name (no.ini)")
 
-
 class SayBody(BaseModel):
     msg: str = Field(..., description="Chat message (<= 120 chars)")
 
-
 class SetDiffLevelBody(BaseModel):
     level: int = Field(..., description="Difficulty level (1..3)")
+
+class SetServerNameBody(BaseModel):
+    name: str = Field(..., description="Server name (<= 30 chars)")
+
+class SetRoundsPerMatchBody(BaseModel):
+    rounds: int = Field(..., description="Rounds per match (1..20)")
+
+class SetBombTimeBody(BaseModel):
+    seconds: int = Field(..., description="Bomb time in seconds (30..60)")
+
+class SetBetweenRoundTimeBody(BaseModel):
+    seconds: int = Field(..., description="Between-round time in seconds (0..99)")
+
+class SetTerrorCountBody(BaseModel):
+    count: int = Field(..., description="Terrorist count (5..40)")
+
+class SetSpamThresholdBody(BaseModel):
+    value: int = Field(..., description="Spam threshold (0..999)")
+
+class SetChatLockDurationBody(BaseModel):
+    value: int = Field(..., description="Chat lock duration (0..999)")
+
+class SetVoteBroadcastFreqBody(BaseModel):
+    value: int = Field(..., description="Vote broadcast max frequency (0..999)")
+
+class SetServerOptionBoolBody(BaseModel):
+    option: str = Field(..., description="Server option name from allowlist")
+    value: bool = Field(..., description="True or False")
 
 def _admin_send(payload: bytes, note: str = ""):
     meta = udp_send_admin_command(DEFAULT_SERVER_IP, DEFAULT_SERVER_PORT, payload, timeout_s=1.2)
@@ -979,6 +1015,43 @@ def api_admin_remove_map(body: RemoveMapBody):
     except Exception:
         logger.exception("Error in /api/admin/remove_map")
         return JSONResponse({"ok": False, "error": "Internal error"}, status_code=400)
+
+
+@app.post("/api/admin/clear_rotation")
+def api_admin_clear_rotation(body: ClearRotationBody):
+    """Remove maps 2 through N, leaving only map #1 in the rotation."""
+    try:
+        count = body.count
+        if count < 2:
+            return JSONResponse(
+                {"ok": False, "error": "Nothing to remove (need at least 2 maps)"},
+                status_code=400,
+            )
+        if count > 32:
+            return JSONResponse(
+                {"ok": False, "error": "Count exceeds max rotation size (32)"},
+                status_code=400,
+            )
+
+        results = []
+        for i in range(count - 1):
+            payload = cmd_remove_map(2)
+            meta = udp_send_admin_command(
+                DEFAULT_SERVER_IP, DEFAULT_SERVER_PORT, payload, timeout_s=0.5
+            )
+            results.append(meta)
+
+        return JSONResponse({
+            "ok": True,
+            "note": f"Removed {count - 1} map(s) from rotation (kept map #1).",
+            "target": {"ip": DEFAULT_SERVER_IP, "port": DEFAULT_SERVER_PORT},
+            "removed": count - 1,
+            "results": results,
+        })
+    except Exception:
+        logger.exception("Error in /api/admin/clear_rotation")
+        return JSONResponse({"ok": False, "error": "Internal error"}, status_code=400)
+
 
 @app.post("/api/admin/messtext")
 def api_admin_messtext(body: MessTextBody):
@@ -1099,6 +1172,95 @@ def api_admin_set_diff_level(body: SetDiffLevelBody):
         logger.exception("Error in /api/admin/set_diff_level")
         return JSONResponse({"ok": False, "error": "Internal error"}, status_code=400)
 
+
+@app.post("/api/admin/set_server_name")
+def api_admin_set_server_name(body: SetServerNameBody):
+    try:
+        payload = cmd_set_server_name(body.name)
+        return _admin_send(payload)
+    except Exception:
+        logger.exception("Error in /api/admin/set_server_name")
+        return JSONResponse({"ok": False, "error": "Internal error"}, status_code=400)
+
+
+@app.post("/api/admin/set_rounds_per_match")
+def api_admin_set_rounds_per_match(body: SetRoundsPerMatchBody):
+    try:
+        payload = cmd_set_rounds_per_match(body.rounds)
+        return _admin_send(payload)
+    except Exception:
+        logger.exception("Error in /api/admin/set_rounds_per_match")
+        return JSONResponse({"ok": False, "error": "Internal error"}, status_code=400)
+
+
+@app.post("/api/admin/set_bomb_time")
+def api_admin_set_bomb_time(body: SetBombTimeBody):
+    try:
+        payload = cmd_set_bomb_time(body.seconds)
+        return _admin_send(payload)
+    except Exception:
+        logger.exception("Error in /api/admin/set_bomb_time")
+        return JSONResponse({"ok": False, "error": "Internal error"}, status_code=400)
+
+
+@app.post("/api/admin/set_between_round_time")
+def api_admin_set_between_round_time(body: SetBetweenRoundTimeBody):
+    try:
+        payload = cmd_set_between_round_time(body.seconds)
+        return _admin_send(payload)
+    except Exception:
+        logger.exception("Error in /api/admin/set_between_round_time")
+        return JSONResponse({"ok": False, "error": "Internal error"}, status_code=400)
+
+
+@app.post("/api/admin/set_terror_count")
+def api_admin_set_terror_count(body: SetTerrorCountBody):
+    try:
+        payload = cmd_set_terror_count(body.count)
+        return _admin_send(payload)
+    except Exception:
+        logger.exception("Error in /api/admin/set_terror_count")
+        return JSONResponse({"ok": False, "error": "Internal error"}, status_code=400)
+
+
+@app.post("/api/admin/set_spam_threshold")
+def api_admin_set_spam_threshold(body: SetSpamThresholdBody):
+    try:
+        payload = cmd_set_spam_threshold(body.value)
+        return _admin_send(payload)
+    except Exception:
+        logger.exception("Error in /api/admin/set_spam_threshold")
+        return JSONResponse({"ok": False, "error": "Internal error"}, status_code=400)
+
+
+@app.post("/api/admin/set_chat_lock_duration")
+def api_admin_set_chat_lock_duration(body: SetChatLockDurationBody):
+    try:
+        payload = cmd_set_chat_lock_duration(body.value)
+        return _admin_send(payload)
+    except Exception:
+        logger.exception("Error in /api/admin/set_chat_lock_duration")
+        return JSONResponse({"ok": False, "error": "Internal error"}, status_code=400)
+
+
+@app.post("/api/admin/set_vote_broadcast_freq")
+def api_admin_set_vote_broadcast_freq(body: SetVoteBroadcastFreqBody):
+    try:
+        payload = cmd_set_vote_broadcast_freq(body.value)
+        return _admin_send(payload)
+    except Exception:
+        logger.exception("Error in /api/admin/set_vote_broadcast_freq")
+        return JSONResponse({"ok": False, "error": "Internal error"}, status_code=400)
+
+
+@app.post("/api/admin/set_server_option_bool")
+def api_admin_set_server_option_bool(body: SetServerOptionBoolBody):
+    try:
+        payload = cmd_set_server_option_bool(body.option, body.value)
+        return _admin_send(payload)
+    except Exception:
+        logger.exception("Error in /api/admin/set_server_option_bool")
+        return JSONResponse({"ok": False, "error": "Internal error"}, status_code=400)
 
 ##########################################
 # Alias / merge management endpoints

@@ -5,10 +5,181 @@ Purpose: Status page overrides (loaded after common.css).
 ==============================================================================
 */
 
+/* Force equal column widths for the player/stats tables */
 table{
   table-layout: fixed;
 }
 
+/* Current map highlight in the maplist */
+.currentMap{
+  font-weight: 800;
+  color: #35d07f;
+  text-shadow: 0 0 10px rgba(53, 208, 127, 0.20);
+}
+
+/* ---- Last Rounds ---- */
+
+/* Round block container */
+.roundBlock{
+  margin-bottom: 14px;
+  background: var(--card2, rgba(255,255,255,0.08));
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  padding: 12px;
+}
+.roundBlock:last-child{
+  margin-bottom: 0;
+}
+
+/* Round header row (age, map, mode, time) */
+.roundHeader{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: baseline;
+  margin-bottom: 10px;
+}
+
+/* Round metadata labels */
+.roundMeta{
+  font-size: 11px;
+  color: rgba(255,255,255,0.55);
+}
+.roundMeta b{
+  color: rgba(255,255,255,0.85);
+}
+
+/* Round player stats table */
+.roundTable{
+  width: 100%;
+  border-collapse: collapse;
+}
+.roundTable th,
+.roundTable td{
+  padding: 6px 8px;
+  text-align: left;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  font-size: 11px;
+}
+.roundTable th{
+  color: rgba(255,255,255,0.5);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing:.2px;
+  font-size: 10px;
+}
+.roundTable tr:hover td{
+  background: rgba(255,255,255,0.03);
+}
+
+/* Time-ago badge */
+.roundAge{
+  color: #8ab4ff;
+  font-weight: 700;
+  font-size: 12px;
+}
+
+/* ---- Loadout Popup ---- */
+
+/* Clickable "Show" link in the players table */
+.loadoutLink{
+  color: var(--link, #8ab4ff);
+  cursor: pointer;
+  font-weight: 800;
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing:.2px;
+  user-select: none;
+  -webkit-user-select: none;
+  border: none;
+  background: none;
+  padding: 0;
+}
+.loadoutLink:hover{
+  color: #b8d4ff;
+}
+
+/* Full-screen overlay behind the popup */
+.loadoutOverlay{
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 9998;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Popup card */
+.loadoutPopup{
+  background: #141c2b;
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 14px;
+  padding: 20px 24px;
+  min-width: 300px;
+  max-width: 480px;
+  z-index: 9999;
+  color: rgba(255,255,255,0.92);
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+}
+.loadoutPopup h3{
+  margin: 0 0 14px 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.95);
+}
+
+/* Two-column grid inside the popup */
+.loadoutPopupGrid{
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: 8px 12px;
+  align-items: baseline;
+}
+
+/* Popup key labels (Primary, Secondary, etc.) */
+.loadoutPopupK{
+  color: rgba(255,255,255,0.55);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing:.2px;
+  font-weight: 800;
+}
+
+/* Popup values (weapon names) */
+.loadoutPopupV{
+  font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+.loadoutPopupV a.wikiLink{
+  color: var(--link, #8ab4ff);
+  text-decoration: none;
+}
+.loadoutPopupV a.wikiLink:hover{
+  text-decoration: underline;
+}
+
+/* Popup close button */
+.loadoutClose{
+  display: inline-block;
+  margin-top: 14px;
+  padding: 6px 16px;
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 10px;
+  background: rgba(255,255,255,0.05);
+  color: rgba(255,255,255,0.85);
+  cursor: pointer;
+  font-size: 12px;
+}
+.loadoutClose:hover{
+  background: rgba(255,255,255,0.1);
+}
+
 /* Desktop grid layout */
-@media (min-width: 1000px){.card.server{ grid-column: span 5; }.card.players{ grid-column: span 7; }.card.lastRounds{ grid-column: span 12; }.card.maplist{ grid-column: span 12; }.card.raw{ grid-column: span 12; }
+@media (min-width: 1000px) {
+  .card.server    { grid-column: span 5; }
+  .card.players   { grid-column: span 7; }
+  .card.lastRounds{ grid-column: span 12; }
+  .card.maplist   { grid-column: span 12; }
+  .card.raw       { grid-column: span 12; }
 }

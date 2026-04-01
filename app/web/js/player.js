@@ -8,7 +8,6 @@ Purpose:
 ==============================================================================
 */
 
-console.log('player.js loaded');
 
 const pageTitle = document.getElementById('pageTitle');
 const playerStatus = document.getElementById('playerStatus');
@@ -17,6 +16,7 @@ const identityWrap = document.getElementById('identityWrap');
 const byMapWrap = document.getElementById('byMapWrap');
 const byModeWrap = document.getElementById('byModeWrap');
 
+// NOTE: COL_LABEL_MAP also defined in stats.js — keep in sync
 const COL_LABEL_MAP = {
   map: 'Map',
   game_mode: 'Game Mode',
@@ -27,6 +27,7 @@ const COL_LABEL_MAP = {
   rounds_played: 'Rounds',
 };
 
+// NOTE: renderTable also defined in stats.js — keep in sync
 function renderTable(wrap, cols, rows){
   if (!wrap) return;
   if (!rows || rows.length === 0){
