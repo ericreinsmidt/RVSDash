@@ -1,7 +1,7 @@
 """
 ==============================================================================
 File: app/ingest.py
-Project: RVSDash - Raven Shield Dashboard (Status and Admin)
+Project: RVSDash - Raven Shield Dashboard
 
 Purpose:
 - Decomposed ingest logic, extracted from main.py.
@@ -414,6 +414,8 @@ def persist_to_sqlite(db_path: str, record: Dict[str, Any], parsed: Optional[Dic
 
 # ---- NDJSON audit log ----
 
+_ingest_dir_ensured = False
+
 def ensure_ingest_dir(path: str) -> None:
     """Ensure the parent directory of the log path exists."""
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
@@ -424,7 +426,10 @@ def append_ndjson(path: str, obj: Dict[str, Any]) -> None:
     Append a single JSON object as one line of NDJSON.
     Append-only and cheap to write.
     """
-    ensure_ingest_dir(path)
+    global _ingest_dir_ensured
+    if not _ingest_dir_ensured:
+        ensure_ingest_dir(path)
+        _ingest_dir_ensured = True
     line = json.dumps(obj, ensure_ascii=False, separators=(",", ":"))
     with open(path, "a", encoding="utf-8") as f:
         f.write(line + "\n")

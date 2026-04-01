@@ -1,7 +1,7 @@
 /*
 ==============================================================================
 File: app/web/js/admin.js
-Project: RVSDash - Raven Shield Dashboard (Status and Admin)
+Project: RVSDash - Raven Shield Dashboard
 Author: Eric Reinsmidt
 
 Purpose:
@@ -69,11 +69,13 @@ const btnSetVoteBroadcastFreq = document.getElementById('btnSetVoteBroadcastFreq
 const voteBroadcastFreq = document.getElementById('voteBroadcastFreq');
 
 const boolOptionsWrap = document.getElementById('boolOptionsWrap');
+const camOptionsWrap = document.getElementById('camOptionsWrap');
 
-async function postJson(url, body){
+async function postJson(url, body, successMsg){
   if (cmdOut){
     cmdOut.textContent = JSON.stringify({sending:true, url, body}, null, 2);
   }
+  const label = url.split('/').pop();
   try{
     const r = await fetch(url, {
       method: 'POST',
@@ -85,15 +87,15 @@ async function postJson(url, body){
       cmdOut.textContent = JSON.stringify(j, null, 2);
     }
     if (j.ok){
-      showToast(`✓ ${url.split('/').pop()} — command sent`, 'ok');
+      showToast(successMsg || `✓ ${label} — command sent`, 'ok');
     } else {
-      showToast(`✗ ${url.split('/').pop()} — ${j.error || 'failed'}`, 'err', 5000);
+      showToast(`✗ ${label} — ${j.error || 'failed'}`, 'err', 5000);
     }
   } catch (e){
     if (cmdOut){
       cmdOut.textContent = JSON.stringify({ok:false, error:String(e)}, null, 2);
     }
-    showToast(`✗ ${url.split('/').pop()} — ${String(e)}`, 'err', 5000);
+    showToast(`✗ ${label} — ${String(e)}`, 'err', 5000);
   }
 }
 
@@ -108,60 +110,60 @@ const btnRestart = document.getElementById('btnRestart');
 btnRestart?.addEventListener('click', async () => {
   const ok = await confirmModal('Restart Server?', 'This will perform a full server restart.', { danger: true, confirmText: 'Restart' });
   if (!ok) return;
-  postJson('/api/admin/restart', {});
+  postJson('/api/admin/restart', {}, '✓ Server restart command sent');
 });
 
 btnSetRT?.addEventListener('click', () => {
-  postJson('/api/admin/set_rt', { seconds: Number(rtSeconds.value) });
+  postJson('/api/admin/set_rt', { seconds: Number(rtSeconds.value) }, `✓ Round time set to ${rtSeconds.value}s`);
 });
 
 btnSetMOTD?.addEventListener('click', () => {
-  postJson('/api/admin/set_motd', { motd: motdText.value });
+  postJson('/api/admin/set_motd', { motd: motdText.value }, `✓ MOTD set to "${motdText.value}"`);
 });
 
 btnLoadINI?.addEventListener('click', () => {
-  postJson('/api/admin/load_ini', { inifile: iniName.value });
+  postJson('/api/admin/load_ini', { inifile: iniName.value }, `✓ Loading map list: ${iniName.value}`);
 });
 
 btnSay?.addEventListener('click', () => {
-  postJson('/api/admin/say', { msg: (sayText?.value || '') });
+  postJson('/api/admin/say', { msg: (sayText?.value || '') }, '✓ Message sent');
 });
 
 btnSetDiff?.addEventListener('click', () => {
   const lvl = Number(diffLevel?.value ?? 0);
-  postJson('/api/admin/set_diff_level', { level: lvl });
+  postJson('/api/admin/set_diff_level', { level: lvl }, `✓ Difficulty set to ${['', 'Recruit', 'Veteran', 'Elite'][lvl] || lvl}`);
 });
 
 btnSetServerName?.addEventListener('click', () => {
-  postJson('/api/admin/set_server_name', { name: (serverName?.value || '') });
+  postJson('/api/admin/set_server_name', { name: (serverName?.value || '') }, `✓ Server name set to "${serverName?.value}"`);
 });
 
 btnSetRoundsPerMatch?.addEventListener('click', () => {
-  postJson('/api/admin/set_rounds_per_match', { rounds: Number(roundsPerMatch.value) });
+  postJson('/api/admin/set_rounds_per_match', { rounds: Number(roundsPerMatch.value) }, `✓ Rounds per match set to ${roundsPerMatch.value}`);
 });
 
 btnSetBombTime?.addEventListener('click', () => {
-  postJson('/api/admin/set_bomb_time', { seconds: Number(bombTime.value) });
+  postJson('/api/admin/set_bomb_time', { seconds: Number(bombTime.value) }, `✓ Bomb time set to ${bombTime.value}s`);
 });
 
 btnSetBetweenRoundTime?.addEventListener('click', () => {
-  postJson('/api/admin/set_between_round_time', { seconds: Number(betweenRoundTime.value) });
+  postJson('/api/admin/set_between_round_time', { seconds: Number(betweenRoundTime.value) }, `✓ Between-round time set to ${betweenRoundTime.value}s`);
 });
 
 btnSetTerrorCount?.addEventListener('click', () => {
-  postJson('/api/admin/set_terror_count', { count: Number(terrorCount.value) });
+  postJson('/api/admin/set_terror_count', { count: Number(terrorCount.value) }, `✓ Terrorist count set to ${terrorCount.value}`);
 });
 
 btnSetSpamThreshold?.addEventListener('click', () => {
-  postJson('/api/admin/set_spam_threshold', { value: Number(spamThreshold.value) });
+  postJson('/api/admin/set_spam_threshold', { value: Number(spamThreshold.value) }, `✓ Spam threshold set to ${spamThreshold.value}`);
 });
 
 btnSetChatLockDuration?.addEventListener('click', () => {
-  postJson('/api/admin/set_chat_lock_duration', { value: Number(chatLockDuration.value) });
+  postJson('/api/admin/set_chat_lock_duration', { value: Number(chatLockDuration.value) }, `✓ Chat lock duration set to ${chatLockDuration.value}`);
 });
 
 btnSetVoteBroadcastFreq?.addEventListener('click', () => {
-  postJson('/api/admin/set_vote_broadcast_freq', { value: Number(voteBroadcastFreq.value) });
+  postJson('/api/admin/set_vote_broadcast_freq', { value: Number(voteBroadcastFreq.value) }, `✓ Vote broadcast frequency set to ${voteBroadcastFreq.value}`);
 });
 
 // Optional status check from admin page (useful for deployments)
@@ -264,26 +266,26 @@ btnFetchMaps?.addEventListener('click', async () => {
 document.getElementById('btnRestartMatch')?.addEventListener('click', async () => {
   const ok = await confirmModal('Restart Match?', 'This will restart the current match and apply any pending setting changes.', { confirmText: 'Restart Match' });
   if (!ok) return;
-  postJson('/api/admin/restart_match', {});
+  postJson('/api/admin/restart_match', {}, '✓ Match restarted');
 });
 
 // Restart round
 document.getElementById('btnRestartRound')?.addEventListener('click', async () => {
   const ok = await confirmModal('Restart Round?', 'This will restart the current round.', { confirmText: 'Restart Round' });
   if (!ok) return;
-  postJson('/api/admin/restart_round', {});
+  postJson('/api/admin/restart_round', {}, '✓ Round restarted');
 });
 
 // Messenger toggle
 document.getElementById('btnMessengerToggle')?.addEventListener('click', () => {
-  postJson('/api/admin/messenger_toggle', {});
+  postJson('/api/admin/messenger_toggle', {}, '✓ Messenger toggled');
 });
 
 // Set max players
 document.getElementById('btnSetMaxPlayers')?.addEventListener('click', () => {
   const val = parseInt(document.getElementById('maxPlayers')?.value, 10);
   if (isNaN(val)) return;
-  postJson('/api/admin/set_max_players', { max_players: val });
+  postJson('/api/admin/set_max_players', { max_players: val }, `✓ Max players set to ${val}`);
 });
 
 // Lock/unlock server (game password)
@@ -296,14 +298,14 @@ document.getElementById('btnLockServer')?.addEventListener('click', async () => 
     const ok = await confirmModal('Disable Game Password?', 'This will remove the game password. Anyone can join.', { confirmText: 'Disable' });
     if (!ok) return;
   }
-  postJson('/api/admin/lock_server', { password: pw });
+  postJson('/api/admin/lock_server', { password: pw }, pw ? '✓ Game password set' : '✓ Game password disabled');
 });
 
 // Save INI
 document.getElementById('btnSaveINI')?.addEventListener('click', () => {
   const val = document.getElementById('saveIniName')?.value?.trim();
   if (!val) { showToast('Enter a filename', 'err'); return; }
-  postJson('/api/admin/save_ini', { inifile: val });
+  postJson('/api/admin/save_ini', { inifile: val }, `✓ Map list saved: ${val}`);
 });
 
 // Go to map
@@ -312,7 +314,7 @@ document.getElementById('btnGoMap')?.addEventListener('click', async () => {
   if (isNaN(val)) return;
   const ok = await confirmModal('Change Map?', `Switch to map <b>#${val}</b> in the rotation?`, { confirmText: 'Change Map' });
   if (!ok) return;
-  postJson('/api/admin/change_map', { index: val });
+  postJson('/api/admin/change_map', { index: val }, `✓ Changing to map #${val}`);
 });
 
 // Remove map
@@ -321,7 +323,7 @@ document.getElementById('btnRemoveMap')?.addEventListener('click', async () => {
   if (isNaN(val)) return;
   const ok = await confirmModal('Remove Map?', `Remove map <b>#${val}</b> from the rotation?`, { danger: true, confirmText: 'Remove' });
   if (!ok) return;
-  postJson('/api/admin/remove_map', { index: val });
+  postJson('/api/admin/remove_map', { index: val }, `✓ Removed map #${val}`);
 });
 
 // Clear rotation (remove maps 2 through N)
@@ -337,7 +339,7 @@ document.getElementById('btnClearRotation')?.addEventListener('click', async () 
     { danger: true, confirmText: 'Clear Rotation' }
   );
   if (!ok) return;
-  postJson('/api/admin/clear_rotation', { count });
+  postJson('/api/admin/clear_rotation', { count }, `✓ Cleared rotation (removed ${count - 1} maps)`);
 });
 
 // Add map — populate mode dropdown when map is selected
@@ -378,7 +380,7 @@ document.getElementById('btnAddMap')?.addEventListener('click', () => {
   if (!gameType) { showToast('Select a game mode', 'err'); return; }
   if (isNaN(position)) { showToast('Enter a position', 'err'); return; }
 
-  postJson('/api/admin/add_map', { map_name: mapName, game_type: gameType, position: position });
+  postJson('/api/admin/add_map', { map_name: mapName, game_type: gameType, position: position }, `✓ Added ${mapName} (${gameType}) at position ${position}`);
 });
 
 /*
@@ -391,7 +393,7 @@ function sendMessText(slot){
   const input = document.getElementById(`messtext${slot}`);
   if (!input) return;
   const text = input.value;
-  return postJson('/api/admin/messtext', { slot, text });
+  return postJson('/api/admin/messtext', { slot, text }, `✓ Messenger line ${slot + 1} updated`);
 }
 
 async function sendAllMessText(){
@@ -456,7 +458,7 @@ function renderAdminPlayers(players){
       if (!ok) return;
       btn.disabled = true;
       btn.textContent = '…';
-      postJson('/api/admin/kick', { ubi });
+      postJson('/api/admin/kick', { ubi }, `✓ Kicked ${name}`);
     });
   });
 
@@ -473,7 +475,7 @@ function renderAdminPlayers(players){
       if (!ok) return;
       btn.disabled = true;
       btn.textContent = '…';
-      postJson('/api/admin/ban', { ubi });
+      postJson('/api/admin/ban', { ubi }, `✓ Banned ${name}`);
     });
   });
 }
@@ -521,8 +523,6 @@ const CAM_OPTIONS = [
   { option: 'CamFadeToBlack',     label: 'Fade to Black' },
   { option: 'CamTeamOnly',        label: 'Team Only' },
 ];
-
-const camOptionsWrap = document.getElementById('camOptionsWrap');
 
 function renderOptionToggles(container, options, serverKv){
   if (!container) return;
@@ -578,7 +578,8 @@ function renderOptionToggles(container, options, serverKv){
     btn.addEventListener('click', () => {
       const option = btn.getAttribute('data-option');
       const value = btn.getAttribute('data-set') === 'true';
-      postJson('/api/admin/set_server_option_bool', { option, value });
+      const label = btn.closest('.row')?.querySelector('b')?.textContent || option;
+      postJson('/api/admin/set_server_option_bool', { option, value }, `✓ ${label} set to ${value ? 'ON' : 'OFF'}`);
     });
   });
 }

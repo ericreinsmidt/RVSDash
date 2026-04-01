@@ -1,7 +1,7 @@
 """
 ==============================================================================
 File: app/admincommands.py
-Project: RVSDash - Raven Shield Dashboard (Status and Admin)
+Project: RVSDash - Raven Shield Dashboard
 Author: Eric Reinsmidt
 
 Purpose:

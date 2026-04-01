@@ -1,7 +1,7 @@
 """
 ================================================================================
 File: app/main.py
-Project: RVSDash - Raven Shield Dashboard (Status and Admin)
+Project: RVSDash - Raven Shield Dashboard
 Author: Eric Reinsmidt
 
 This is the "single source of truth" FastAPI app module.
@@ -232,17 +232,21 @@ def _build_footer_html() -> str:
     return f'<footer class="siteFooter">{FOOTER_HTML}</footer>'
 
 
+_html_cache: dict[str, str] = {}
+
 def _render_html(filename: str) -> HTMLResponse:
-    """Read an HTML file, inject shared fragments and config values."""
-    html = (WEB_DIR / filename).read_text("utf-8")
-    html = html.replace("__DEFAULT_TARGET__", f"{DEFAULT_SERVER_IP}:{DEFAULT_SERVER_PORT}")
-    html = html.replace("__CACHE_BUST__", _CACHE_BUST)
-    html = html.replace("__NAV__", _build_nav_html())
-    html = html.replace("__FOOTER__", _build_footer_html())
-    html = html.replace("__SITE_TITLE__", SITE_TITLE)
-    html = html.replace("__SITE_HEADING__", SITE_HEADING)
-    html = html.replace("__SERVER_IDENT__", DEFAULT_SERVER_IDENT)
-    return HTMLResponse(html)
+    """Read an HTML file, inject shared fragments and config values. Cached after first call."""
+    if filename not in _html_cache:
+        html = (WEB_DIR / filename).read_text("utf-8")
+        html = html.replace("__DEFAULT_TARGET__", f"{DEFAULT_SERVER_IP}:{DEFAULT_SERVER_PORT}")
+        html = html.replace("__CACHE_BUST__", _CACHE_BUST)
+        html = html.replace("__NAV__", _build_nav_html())
+        html = html.replace("__FOOTER__", _build_footer_html())
+        html = html.replace("__SITE_TITLE__", SITE_TITLE)
+        html = html.replace("__SITE_HEADING__", SITE_HEADING)
+        html = html.replace("__SERVER_IDENT__", DEFAULT_SERVER_IDENT)
+        _html_cache[filename] = html
+    return HTMLResponse(_html_cache[filename])
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -274,17 +278,36 @@ def player_page():
 # Stats API (read-only, alias-aware)
 ##########################################
 
+import threading
 from contextlib import contextmanager
+
+# Shared read connection for stats queries (WAL mode supports concurrent readers).
+_read_con: sqlite3.Connection | None = None
+_read_con_lock = threading.Lock()
+
+def _get_read_con() -> sqlite3.Connection:
+    """Return a shared SQLite connection for read-only stats queries."""
+    global _read_con
+    if _read_con is None:
+        with _read_con_lock:
+            if _read_con is None:
+                con = sqlite3.connect(str(DB_PATH), check_same_thread=False)
+                con.row_factory = sqlite3.Row
+                con.execute("PRAGMA journal_mode=WAL")
+                con.execute("PRAGMA synchronous=NORMAL")
+                _read_con = con
+    return _read_con
 
 @contextmanager
 def _db_ctx():
-    """Context manager for read-only stats queries."""
-    con = sqlite3.connect(str(DB_PATH))
-    con.row_factory = sqlite3.Row
-    try:
-        yield con
-    finally:
-        con.close()
+    """Context manager for read-only stats queries using shared connection."""
+    yield _get_read_con()
+
+
+# TTL cache for stats queries — avoids redundant heavy aggregations.
+# Stats only change when a round ends (every few minutes), so 30s staleness is fine.
+_stats_cache: dict[str, tuple] = {}
+_STATS_CACHE_TTL = 30  # seconds
 
 
 def _stats_query(
@@ -296,11 +319,19 @@ def _stats_query(
     where_table: str = "p2",
 ) -> dict:
     """
-    Shared stats query builder.
+    Shared stats query builder with TTL cache.
 
     All stats queries share the same JOIN structure (player_map_stats → players → aliases).
     This helper builds and executes the query, returning {"ok": True, "rows": [...]}.
+    Results are cached for _STATS_CACHE_TTL seconds.
     """
+    cache_key = f"{select_cols}|{group_by}|{order_by}|{server_ident}|{limit}|{where_table}"
+    now = time.time()
+    if cache_key in _stats_cache:
+        result, cached_at = _stats_cache[cache_key]
+        if now - cached_at < _STATS_CACHE_TTL:
+            return result
+
     try:
         with _db_ctx() as con:
             conditions = [f"p2.ubi NOT LIKE 'JOHNDOE%'"]
@@ -326,7 +357,9 @@ def _stats_query(
                 args.append(limit)
 
             rows = con.execute(sql, args).fetchall()
-            return {"ok": True, "rows": [dict(r) for r in rows]}
+            result = {"ok": True, "rows": [dict(r) for r in rows]}
+            _stats_cache[cache_key] = (result, now)
+            return result
     except Exception as e:
         return {"ok": False, "error": str(e)}
 

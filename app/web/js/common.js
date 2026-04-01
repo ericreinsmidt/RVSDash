@@ -1,7 +1,7 @@
 /*
 ==============================================================================
 File: app/web/js/common.js
-Project: RVSDash - Raven Shield Dashboard (Status and Admin)
+Project: RVSDash - Raven Shield Dashboard
 Purpose:
 - Shared utility functions used across status.js, stats.js, and admin.js.
 - Single source of truth for escapeHtml and other common helpers.

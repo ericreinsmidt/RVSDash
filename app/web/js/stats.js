@@ -2,7 +2,7 @@
 /*
 ==============================================================================
 File: app/web/js/stats.js
-Project: RVSDash - Raven Shield Dashboard (Status and Admin)
+Project: RVSDash - Raven Shield Dashboard
 Purpose:
 - Read-only stats page behavior.
 - Keeps a familiar UX: dot + "last update" + refresh button.

@@ -1,7 +1,7 @@
 """
 ==============================================================================
 File: app/parse.py
-Project: RVSDash - Raven Shield Dashboard (Status and Admin)
+Project: RVSDash - Raven Shield Dashboard
 Author: Eric Reinsmidt
 Purpose:
   - Parse REPORTEXT UDP datagrams into a simple KV dict.

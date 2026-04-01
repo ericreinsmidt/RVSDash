@@ -1,7 +1,7 @@
 """
 ================================================================================
 Logical path (in-project): app/udp.py
-Project: RVSDash - Raven Shield Dashboard (Status and Admin)
+Project: RVSDash - Raven Shield Dashboard
 Author: Eric Reinsmidt
 
 What this file does (high-level):
@@ -23,6 +23,7 @@ Why this file exists:
 """
 
 import socket
+import base64
 import time
 from typing import List, Tuple
 
@@ -184,7 +185,6 @@ def udp_send_admin_command(ip: str, port: int, payload: bytes, timeout_s: float 
     Returns:
         dict: Metadata about what was sent and what (if anything) came back.
     """
-    import base64
 
     t0 = time.time()
     target = (ip, port)

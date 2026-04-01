@@ -1,7 +1,7 @@
 """
 ================================================================================
 File: app/rvsstats_db.py
-Project: RVSDash - Raven Shield Dashboard (Status and Admin)
+Project: RVSDash - Raven Shield Dashboard
 Author: Eric Reinsmidt
 
 What this file does (high-level):
@@ -27,6 +27,9 @@ import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+# Pre-compiled regex for detecting Player_XXXXXXXX suffix pattern.
+_SUFFIX_RE = re.compile(r"^(.+)_([A-Za-z0-9]{8})$")
 
 
 def db_init(db_path: Path) -> None:
@@ -383,7 +386,7 @@ def db_detect_merge_candidates(con: sqlite3.Connection) -> List[Dict[str, Any]]:
     """
 
     # Pattern: base name, underscore, exactly 8 alphanumeric chars at end
-    suffix_re = re.compile(r"^(.+)_([A-Za-z0-9]{8})$")
+    suffix_re = _SUFFIX_RE
 
     # Get all players not already aliased
     rows = con.execute(
@@ -471,7 +474,7 @@ def db_auto_resolve_ubi(con: sqlite3.Connection, server_ident: str, ubi: str) ->
     Excludes generic names (JOHNDOE).
     """
 
-    suffix_re = re.compile(r"^(.+)_([A-Za-z0-9]{8})$")
+    suffix_re = _SUFFIX_RE
 
     ubi = (ubi or "").strip()
     server_ident = (server_ident or "").strip()
