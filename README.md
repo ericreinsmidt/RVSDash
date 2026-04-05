@@ -125,10 +125,9 @@ Both machines need to be able to reach each other on the respective ports. If a 
 
 ### On the Game Server
 
-1. Place `N4Admin.u` in your `System` directory.
-2. Place `URLPast.u` in your `System` directory.
-3. Place `N4IDMod.utx` in your `Textures` directory.
-4. Edit `RavenShield.ini` in your `System` directory:
+1. Place `N4Admin.u` and `URLPast.u` in your `System` directory.
+2. Place `N4BaseUtil.utx`, `N4Util.utx`, `N4XHTML.utx` and `N4IDMod.utx` in your `Textures` directory.
+3. Edit `RavenShield.ini` in your `System` directory:
 
    * Take note of your `ServerBeaconPort` value. You will need this when configuring RVSDash.
 
