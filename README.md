@@ -20,6 +20,11 @@ How to use it:
 
 A modern web dashboard for monitoring and administering a **Tom Clancy's Rainbow Six: Raven Shield** (2003) dedicated game server.
 
+
+[![Release](https://img.shields.io/github/v/release/ericreinsmidt/RVSDash?style=for-the-badge&color=dd3333)](https://github.com/ericreinsmidt/nextui-ledoh/releases)
+[![Downloads](https://img.shields.io/github/downloads/ericreinsmidt/RVSDash/total?style=for-the-badge&color=22aa44)](https://github.com/ericreinsmidt/nextui-ledoh/releases)
+[![License](https://img.shields.io/github/license/ericreinsmidt/RVSDash?style=for-the-badge&color=3366cc)](LICENSE)
+
 ## What It Does
 
 ### Status Page (`/status`)
